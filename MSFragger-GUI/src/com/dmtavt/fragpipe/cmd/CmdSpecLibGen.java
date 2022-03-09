@@ -166,7 +166,9 @@ public class CmdSpecLibGen extends CmdBase {
             final boolean isTimsTOF = dataType == InputDataType.ImMsTimsTof;
             final boolean isRaw = fn.toLowerCase().endsWith(".raw");
             final String sans_suffix = lcms.getPath().getParent().resolve(fn_sans_extension).toString();
-            if ((isTimsTOF && fn.toLowerCase().endsWith(".d")) || isRaw) {
+            if (lcms.getDataType().equalsIgnoreCase("dia") || lcms.getDataType().equalsIgnoreCase("gpf-dia") || lcms.getDataType().equalsIgnoreCase("dia-lib")) {
+              return sans_suffix + "_pseudo.mgf";
+            } else if ((isTimsTOF && fn.toLowerCase().endsWith(".d")) || isRaw) {
               return sans_suffix + "_uncalibrated.mgf";
             } else {
               return lcms.getPath().toString();
