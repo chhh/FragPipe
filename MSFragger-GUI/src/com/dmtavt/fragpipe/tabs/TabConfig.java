@@ -280,7 +280,9 @@ public class TabConfig extends JPanelWithEnablement {
       mapNameToPanel.values().forEach(pOuter::remove);
       pOuter.add(curPanel, ccL().spanX().growX().wrap());
       pOuter.revalidate();
+      Bus.postSticky(new NoteConfigSearchEngine(NoteConfigSearchEngine.fromString(name)));
     });
+    // force an update when the UI loads first
     uiComboEngines.setSelectedItem(null);
     uiComboEngines.setSelectedItem(searchEngineNames[0]);
 
