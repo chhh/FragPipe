@@ -1073,6 +1073,10 @@ public class SwingUtils {
     showErrorDialogWithStacktrace(e, parent, true);
   }
 
+  public static String replaceNewlinesWithHtmlLineBreaks(String s) {
+    return s == null ? "" : reNewline.matcher(s).replaceAll("<br/>");
+  }
+
   public static String makeHtml(String html) {
     if (html == null) {
       return "";

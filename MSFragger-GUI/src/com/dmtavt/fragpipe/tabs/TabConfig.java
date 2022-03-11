@@ -139,6 +139,7 @@ public class TabConfig extends JPanelWithEnablement {
   private static final String TIP_SPECLIBGEN = "tip.speclibgen";
   private static final String TIP_FRAGPIPE_UPDATE = "tip.fragpipe.update";
   public static final String TAB_PREFIX = "fragpipe-config.";
+  private String[] searchEngineNames = new String[]{"MSFragger", "Comet"};
 
 
   public TabConfig() {
@@ -226,33 +227,64 @@ public class TabConfig extends JPanelWithEnablement {
   }
 
   private JPanel createPanelFragger() {
-    JPanel p = newMigPanel();
-    p.setBorder(new TitledBorder("MSFragger"));
+    final JPanel pOuter = newMigPanel();
+    pOuter.setBorder(new TitledBorder("Search Engine"));
 
-    final String binMsfraggerTip = "Select path to MSFragger.jar";
-    uiTextBinFragger = UiUtils.uiTextBuilder().create();
-    uiTextBinFragger.addFocusListener(new ContentChangedFocusAdapter(uiTextBinFragger, (s, s2) -> {
-      Bus.post(new MessageMsfraggerNewBin(s2));
-    }));
-    FormEntry feBinMsfragger = fe(uiTextBinFragger, "bin-msfragger", TAB_PREFIX).tooltip(binMsfraggerTip).create();
-    p.add(feBinMsfragger.comp, ccL().split().growX());
+    final UiCombo uiComboEngines = UiUtils.createUiCombo(searchEngineNames);
+    final FormEntry feComboEngines = fe(uiComboEngines, "selector-search-engine", TAB_PREFIX)
+            .tooltip("Select which search engine to use").create();
+    pOuter.add(feComboEngines.comp, ccL().wrap());
 
-    JButton btnBrowse = feBinMsfragger.browseButton("Browse", binMsfraggerTip, this::createFraggerFilechooser, paths -> {
-      paths.stream().findFirst().ifPresent(jar -> Bus.post(new MessageMsfraggerNewBin(jar.toString())));
+    final JPanel pFragger = newMigPanel();
+    { // Fragger
+      final String binMsfraggerTip = "Select path to MSFragger.jar";
+      uiTextBinFragger = UiUtils.uiTextBuilder().create();
+      uiTextBinFragger.addFocusListener(new ContentChangedFocusAdapter(uiTextBinFragger, (s, s2) -> {
+        Bus.post(new MessageMsfraggerNewBin(s2));
+      }));
+      FormEntry feBinMsfragger = fe(uiTextBinFragger, "bin-msfragger", TAB_PREFIX).tooltip(binMsfraggerTip).create();
+      pFragger.add(feBinMsfragger.comp, ccL().split().growX());
+
+      JButton btnBrowse = feBinMsfragger.browseButton("Browse", binMsfraggerTip, this::createFraggerFilechooser, paths -> {
+        paths.stream().findFirst().ifPresent(jar -> Bus.post(new MessageMsfraggerNewBin(jar.toString())));
+      });
+      pFragger.add(btnBrowse, ccL());
+      JButton btnUpdate = UiUtils.createButton("Download / Update", this::actionMsfraggerUpdate);
+
+      btnUpdate.setToolTipText(SwingUtils.makeHtml("Open MSFragger upgrader tool in browser.\n" +
+          "In order to update you <b>must</b> download an\n" +
+          "original copy from the <b>download</b> website once."));
+      epFraggerVer = new HtmlStyledJEditorPane("MSFragger version: N/A");
+      pFragger.add(btnUpdate, ccL().wrap());
+      pFragger.add(Fragpipe.renameNoCache(epFraggerVer, "msfragger.version-info", TAB_PREFIX), ccL().split());
+
+      JEditorPane ep = SwingUtils.createClickableHtml(createFraggerCitationBody());
+      pFragger.add(ep, ccL().spanX().growX().wrap());
+      pOuter.add(pFragger, ccL().spanX().growX().wrap());
+    }
+    final JPanel pComet = newMigPanel();
+    { // Comet
+      HtmlStyledJEditorPane ep = SwingUtils.createClickableHtml(createCometCitationBody());
+      pComet.add(ep, ccL().spanX().growX().wrap());
+      pOuter.add(pComet, ccL().spanX().growX().wrap());
+    }
+
+    final Map<String, JComponent> mapNameToPanel = new HashMap<>();
+    mapNameToPanel.put(searchEngineNames[0], pFragger);
+    mapNameToPanel.put(searchEngineNames[1], pComet);
+    uiComboEngines.addItemListener(e -> {
+      final String name = (String) uiComboEngines.getSelectedItem();
+      JComponent curPanel = mapNameToPanel.get(name);
+      if (curPanel == null)
+        return;
+      mapNameToPanel.values().forEach(pOuter::remove);
+      pOuter.add(curPanel, ccL().spanX().growX().wrap());
+      pOuter.revalidate();
     });
-    p.add(btnBrowse, ccL());
-    JButton btnUpdate = UiUtils.createButton("Download / Update", this::actionMsfraggerUpdate);
+    uiComboEngines.setSelectedItem(null);
+    uiComboEngines.setSelectedItem(searchEngineNames[0]);
 
-    btnUpdate.setToolTipText(SwingUtils.makeHtml("Open MSFragger upgrader tool in browser.\n" +
-        "In order to update you <b>must</b> download an\n" +
-        "original copy from the <b>download</b> website once."));
-    epFraggerVer = new HtmlStyledJEditorPane("MSFragger version: N/A");
-    p.add(btnUpdate, ccL().wrap());
-    p.add(Fragpipe.renameNoCache(epFraggerVer, "msfragger.version-info", TAB_PREFIX), ccL().split());
-    
-    JEditorPane ep = SwingUtils.createClickableHtml(createFraggerCitationBody());
-    p.add(ep, ccL().spanX().growX().wrap());
-    return p;
+    return pOuter;
   }
 
   @Subscribe(sticky = true, threadMode = ThreadMode.MAIN_ORDERED)
@@ -718,6 +750,18 @@ public class TabConfig extends JPanelWithEnablement {
     final StringBuilder sb = new StringBuilder();
     sb.append("&emsp;More info and docs: <a href=\"").append("https://msfragger.nesvilab.org/").append("\">MSFragger</a>");
     return sb.toString();
+  }
+
+  private static String createCometCitationBody() {
+    String s = SwingUtils.replaceNewlinesWithHtmlLineBreaks(
+            "&emsp;More info and docs: <a href='https://uwpr.github.io/Comet/'>Comet homepage</a>\n" +
+                    "\n" +
+                    "Cite:\n" +
+                    "<a href='https://pubs.acs.org/doi/abs/10.1021/acs.jproteome.9b00860'>Full-Featured, Real-Time Database Searching Platform Enables Fast and Accurate Multiplexed Quantitative Proteomics</a>.\n" +
+                    "Schweppe DK, Eng JK, Yu Q, Bailey D, Rad R, Navarrete-Perea J, Huttlin EL, Erickson BK, Paulo JA, Gygi SP.\n" +
+                    "J Proteome Res. 2020 May 1;19(5):2026-2034. doi: 10.1021/acs.jproteome.9b00860\n");
+
+    return s;
   }
 
   private JPanel createPanelPhilosopher() {
