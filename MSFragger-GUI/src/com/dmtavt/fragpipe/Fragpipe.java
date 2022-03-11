@@ -926,7 +926,7 @@ public class Fragpipe extends JFrameHeadless {
   public static <T> T getStickyStrict(Class<T> clazz) {
     T sticky = Bus.getStickyEvent(clazz);
     if (sticky == null) {
-      if (clazz.getName().contentEquals("com.dmtavt.fragpipe.messages.NoteConfigPhilosopher")) {
+      if (NoteConfigPhilosopher.class.getCanonicalName().equals(clazz.getCanonicalName())) {
         Bus.postSticky(new NoteConfigPhilosopher(null, "N/A"));
         sticky = Bus.getStickyEvent(clazz);
       } else if (clazz.getName().contentEquals("com.dmtavt.fragpipe.messages.NoteConfigSpeclibgen")) {
