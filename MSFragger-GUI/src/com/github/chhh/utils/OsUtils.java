@@ -121,7 +121,7 @@ public class OsUtils {
         final com.sun.management.OperatingSystemMXBean operatingSystemMXBean = ((com.sun.management.OperatingSystemMXBean) java.lang.management.ManagementFactory.getOperatingSystemMXBean());
         if (isWindows()) {
             // for Windows, this will get available memory
-            freeMem = operatingSystemMXBean.getFreeMemorySize() / 1024.0 / 1024.0 / 1024.0;
+            freeMem = operatingSystemMXBean.getFreePhysicalMemorySize() / 1024.0 / 1024.0 / 1024.0;
         } else {
             // for linux, getFreePhysicalMemorySize, returns system free memory.
             try (final java.io.InputStream inputStream = new ProcessBuilder("free", "-wg").start().getInputStream()) {
@@ -129,7 +129,7 @@ public class OsUtils {
                 freeMem = Integer.parseInt(s.split("\n")[1].split(" +")[7]);
             } catch (IOException | NumberFormatException ex) {
                 // return system free memory if we can't get available memory
-                freeMem = operatingSystemMXBean.getFreeMemorySize() / 1024.0 / 1024.0 / 1024.0;
+                freeMem = operatingSystemMXBean.getFreePhysicalMemorySize() / 1024.0 / 1024.0 / 1024.0;
             }
         }
         if (freeMem > 120) {
