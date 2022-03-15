@@ -10,12 +10,12 @@ import com.dmtavt.fragpipe.messages.MessageMsfraggerParamsUpdate;
 import com.dmtavt.fragpipe.messages.MessagePrecursorSelectionMode;
 import com.dmtavt.fragpipe.messages.MessageSearchType;
 import com.dmtavt.fragpipe.messages.MessageValidityMassCalibration;
+import com.dmtavt.fragpipe.messages.NoteConfigComet;
 import com.dmtavt.fragpipe.messages.NoteConfigDbsplit;
-import com.dmtavt.fragpipe.messages.NoteConfigMsfragger;
+import com.dmtavt.fragpipe.messages.NoteConfigSearchEngine;
 import com.dmtavt.fragpipe.params.Props;
 import com.dmtavt.fragpipe.params.ThisAppProps;
 import com.dmtavt.fragpipe.tabs.TabComet;
-import com.dmtavt.fragpipe.tabs.TabMsfragger;
 import com.dmtavt.fragpipe.tabs.TabWorkflow;
 import com.dmtavt.fragpipe.tools.enums.CleavageType;
 import com.dmtavt.fragpipe.tools.enums.FraggerOutputType;
@@ -1533,7 +1533,12 @@ public class CometPanel extends JPanelBase {
     }
 
     @Subscribe(sticky = true, threadMode = ThreadMode.MAIN_ORDERED)
-    public void on(NoteConfigMsfragger m) {
+    public void on(NoteConfigSearchEngine m) {
+        updateEnabledStatus(this, m.type == NoteConfigSearchEngine.Type.Comet && m.isValid());
+    }
+
+    @Subscribe(sticky = true, threadMode = ThreadMode.MAIN_ORDERED)
+    public void on(NoteConfigComet m) {
         updateEnabledStatus(this, m.isValid());
     }
 

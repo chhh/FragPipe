@@ -144,6 +144,7 @@ public class TabConfig extends JPanelWithEnablement {
   private static final String TIP_FRAGPIPE_UPDATE = "tip.fragpipe.update";
   public static final String TAB_PREFIX = "fragpipe-config.";
   private String[] searchEngineNames = new String[]{"MSFragger", "Comet"};
+  private UiCombo uiComboEngines;
 
 
   public TabConfig() {
@@ -234,7 +235,7 @@ public class TabConfig extends JPanelWithEnablement {
     final JPanel pOuter = newMigPanel();
     pOuter.setBorder(new TitledBorder("Search Engine"));
 
-    final UiCombo uiComboEngines = UiUtils.createUiCombo(searchEngineNames);
+    uiComboEngines = UiUtils.createUiCombo(searchEngineNames);
     final FormEntry feComboEngines = fe(uiComboEngines, "selector-search-engine", TAB_PREFIX)
             .tooltip("Select which search engine to use").create();
     pOuter.add(feComboEngines.comp, ccL().wrap());
