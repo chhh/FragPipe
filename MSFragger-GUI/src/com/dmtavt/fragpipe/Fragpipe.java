@@ -42,6 +42,7 @@ import com.dmtavt.fragpipe.messages.MessageShowAboutDialog;
 import com.dmtavt.fragpipe.messages.MessageUiRevalidate;
 import com.dmtavt.fragpipe.messages.NoteConfigMsfragger;
 import com.dmtavt.fragpipe.messages.NoteConfigPhilosopher;
+import com.dmtavt.fragpipe.messages.NoteConfigSearchEngine;
 import com.dmtavt.fragpipe.messages.NoteConfigSpeclibgen;
 import com.dmtavt.fragpipe.messages.NoteConfigTips;
 import com.dmtavt.fragpipe.messages.NoteFragpipeCache;
@@ -96,6 +97,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -197,6 +199,11 @@ public class Fragpipe extends JFrameHeadless {
     updater = new FragpipeUpdater();
     Bus.registerQuietly(updater);
   }
+
+  UiTab uiTabDb;
+  private HashMap<String, UiTab> uiTabsSearchEnginesByTabName = new HashMap<>();
+  private HashMap<String, UiTab> uiTabsSearchEnginesByEnumName
+          = new HashMap<>();
 
   public Fragpipe() throws HeadlessException {
     super(headless);
@@ -632,10 +639,14 @@ public class Fragpipe extends JFrameHeadless {
         "/com/dmtavt/fragpipe/icons/icon-workflow-16.png", null));
     addTab.accept(new UiTab("Umpire", tabUmpire,
         "/com/dmtavt/fragpipe/icons/dia-umpire-16x16.png", null));
-    addTab.accept(new UiTab("Database", tabDatabase,
-        "/com/dmtavt/fragpipe/icons/icon-dna-helix-16.png", null));
-    addTab.accept(new UiTab(TAB_NAME_MSFRAGGER, tabMsfragger,
-        "/com/dmtavt/fragpipe/icons/bolt-outlined-16.png", null));
+    uiTabDb = new UiTab("Database", tabDatabase,
+            "/com/dmtavt/fragpipe/icons/icon-dna-helix-16.png", null);
+    addTab.accept(uiTabDb);
+    UiTab uiTabFragger = new UiTab(TAB_NAME_MSFRAGGER, tabMsfragger,
+            "/com/dmtavt/fragpipe/icons/bolt-outlined-16.png", null);
+    uiTabsSearchEnginesByTabName.put(uiTabFragger.getTitle(), uiTabFragger);
+    uiTabsSearchEnginesByEnumName.put(NoteConfigSearchEngine.Type.MsFragger.name(), uiTabFragger);
+    addTab.accept(uiTabFragger);
     addTab.accept(new UiTab("Validation", tabValidation,
         "/com/dmtavt/fragpipe/icons/icon-filtration-16.png", null));
     addTab.accept(new UiTab("PTMs", tabPtms, "/com/dmtavt/fragpipe/icons/icon-edit-16.png", null));
@@ -749,6 +760,46 @@ public class Fragpipe extends JFrameHeadless {
     if (m.doClose) {
       dontSaveCacheOnExit = true;
       System.exit(0);
+    }
+  }
+
+  @Subscribe(sticky = true, threadMode = ThreadMode.MAIN_ORDERED)
+  public void on(NoteConfigSearchEngine m) {
+    synchronized (this) {
+      // search for an existing tab
+      int idxInsertion = -1;
+      for (UiTab tab : uiTabsSearchEnginesByTabName.values()) {
+        idxInsertion = tabs.indexOfTab(tab.getTitle());
+        if (idxInsertion >= 0)
+          break;
+      }
+      if (idxInsertion < 0) {
+        // if we didn't find a previous instance, then insert after DB tab
+        idxInsertion = tabs.indexOfTab(uiTabDb.getTitle());
+        if (idxInsertion < 0) {
+          throw new IllegalStateException("This was not accounted for, DB tab should be present as a backup solution");
+        }
+        idxInsertion += 1;
+      }
+      for (UiTab tab : uiTabsSearchEnginesByTabName.values()) {
+        int idx = tabs.indexOfTab(tab.getTitle());
+        if (idx >= 0)
+          tabs.removeTabAt(idx);
+      }
+
+      switch (m.type) {
+        case MsFragger: {
+          UiTab t = uiTabsSearchEnginesByEnumName.get(m.type.name());
+          tabs.insertTab(t.getTitle(), t.getIcon(), t.getComponent(), null, idxInsertion);
+        }
+        break;
+        case Comet: {
+          log.warn("Comet doesn't have a tab in the mapping yet");
+        }
+        break;
+        default:
+          throw new UnsupportedOperationException("Unknown enum for search engine encountered");
+      }
     }
   }
 
