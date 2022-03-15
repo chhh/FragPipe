@@ -100,7 +100,7 @@ public class CometPanel extends JPanelBase {
     private final static MigUtils mu = MigUtils.get();
     private AtomicBoolean hasBeenShown = new AtomicBoolean(false);
     public static final String TAB_PREFIX = TabComet.TAB_PREFIX;
-    public static final String PROP_FILECHOOSER_LAST_PATH = "comt.filechooser.path";
+    public static final String PROP_FILECHOOSER_LAST_PATH = "comet.filechooser.path";
     public static final String CACHE_FORM = "comet-form" + ThisAppProps.TEMP_FILE_EXT;
     public static final String CACHE_PROPS = "comet-props" + ThisAppProps.TEMP_FILE_EXT;
 
@@ -132,7 +132,7 @@ public class CometPanel extends JPanelBase {
     private static final int[] MASS_DIFF_TO_VAR_MOD_MAP = {0, 2, 1};
     private static final java.util.List<String> GLYCO_OPTIONS_UI = Arrays
             .asList(GLYCO_OPTION_off, GLYCO_OPTION_nglycan, GLYCO_OPTION_labile);
-    private static final String LOAD_CUSTOM_CONFIG_OPTION = "Custom MSFragger parameter file from disk";
+    private static final String LOAD_CUSTOM_CONFIG_OPTION = "Custom Comet parameter file from disk";
 
     private static final java.util.List<MsfraggerEnzyme> ENZYMES = new EnzymeProvider().get();
     //public static FileNameExtensionFilter fnExtFilter = new FileNameExtensionFilter("LCMS files (mzML/mzXML/mgf/raw/d)", "mzml", "mzxml");
@@ -229,9 +229,6 @@ public class CometPanel extends JPanelBase {
 
         SEARCH_TYPE_NAME_MAPPING = new LinkedHashMap<>();
         SEARCH_TYPE_NAME_MAPPING.put("Closed Search default config", SearchTypeProp.closed);
-        SEARCH_TYPE_NAME_MAPPING.put("Open Search default config", SearchTypeProp.open);
-        SEARCH_TYPE_NAME_MAPPING.put("Non-specific Search default config", SearchTypeProp.nonspecific);
-        SEARCH_TYPE_NAME_MAPPING.put("Mass Offset Search default config", SearchTypeProp.offset);
     }
 
     private UiCheck checkRun;
@@ -391,16 +388,16 @@ public class CometPanel extends JPanelBase {
     private JPanel createPanelTop() {
         JPanel pTop = new JPanel(new MigLayout(new LC()));
 
-        checkRun = new UiCheck("Run MSFragger", null, true);
-        checkRun.setName("run-msfragger");
+        checkRun = new UiCheck("Run Comet", null, true);
+        checkRun.setName("run-comet");
         checkRun.addActionListener(e -> {
             final boolean isSelected = checkRun.isSelected();
             updateEnabledStatus(pContent, isSelected);
         });
 
         JButton btnSave = new JButton("Save Config");
-        btnSave.setToolTipText("<html>Save MSFragger compatible config file \n</br>"
-                + "which can be used with MSFragger from command line");
+        btnSave.setToolTipText("<html>Save Comet compatible config file \n</br>"
+                + "which can be used with Comet from command line");
         btnSave.addActionListener(this::actionBtnConfigSave);
 
         java.util.List<String> loadOptions = Seq.of(LOAD_CUSTOM_CONFIG_OPTION).append(Seq.seq(SEARCH_TYPE_NAME_MAPPING.keySet())).toList();
