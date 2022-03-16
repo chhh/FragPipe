@@ -16,14 +16,14 @@ public enum CometTolUnits {
         return val;
     }
 
-    public static com.dmtavt.fragpipe.tools.enums.PrecursorMassTolUnits fromParamsFileToUi(String fileRepresentation) {
+    public static CometTolUnits fromParamsFileToUi(String fileRepresentation) {
         int v = Integer.parseInt(fileRepresentation);
         for (int i = 0; i < com.dmtavt.fragpipe.tools.enums.PrecursorMassTolUnits.values().length; i++) {
-            com.dmtavt.fragpipe.tools.enums.PrecursorMassTolUnits u = com.dmtavt.fragpipe.tools.enums.PrecursorMassTolUnits.values()[i];
+            CometTolUnits u = CometTolUnits.values()[i];
             if (u.valueInParamsFile() == v)
                 return u;
         }
-        throw new IllegalStateException("Value for MassTolUnits stored in params file for property " + CometParams.PROP_peptide_mass_units +
+        throw new IllegalStateException("Value for CometTolUnits stored in params file for property " + CometParams.PROP_peptide_mass_units +
                 " does not correspond to enum values of MassTolUnits.");
     }
 }
