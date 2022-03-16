@@ -6,6 +6,7 @@ import com.dmtavt.fragpipe.api.FragpipeCacheUtils;
 import com.dmtavt.fragpipe.api.ModsTable;
 import com.dmtavt.fragpipe.api.ModsTableModel;
 import com.dmtavt.fragpipe.api.SearchTypeProp;
+import com.dmtavt.fragpipe.messages.MessageCometParamsUpdate;
 import com.dmtavt.fragpipe.messages.MessageMsfraggerParamsUpdate;
 import com.dmtavt.fragpipe.messages.MessagePrecursorSelectionMode;
 import com.dmtavt.fragpipe.messages.MessageSearchType;
@@ -321,7 +322,7 @@ public class CometPanel extends JPanelBase {
         super.initMore();
 
         // init fields with default values, called after initMore() which causes field renaming to happen
-        log.debug("Calling TabMsfragger loadDefaults(SearchTypeProp.closed, false) in initMore()");
+        log.debug("Calling TabComet loadDefaults(SearchTypeProp.closed, false) in initMore()");
         loadDefaults(SearchTypeProp.closed, false);
 
         // try scrolling up
@@ -915,12 +916,9 @@ public class CometPanel extends JPanelBase {
                 .tooltip("Remove with all charge states is for ETD/ECD data and removes M+e peaks in addition to precursor peak")
                 .create();
         DecimalFormat df1 = new DecimalFormat("0.#");
-        FormEntry fePrecRemoveRangeLo = mu.feb(PROP_MISC_comet_remove_precursor_range_lo,
-                        UiSpinnerDouble.builder(-1.5, -1000.0, 1000.0, 0.1).setCols(5).setFormat(df1).create())
-                .label("removal m/z range").create();
-        FormEntry fePrecRemoveRangeHi = mu.feb(PROP_MISC_comet_remove_precursor_range_hi,
-                        UiSpinnerDouble.builder(+1.5, -1000.0, 1000.0, 0.1).setCols(5).setFormat(df1).create())
-                .create();
+        FormEntry fePrecRemoveRangeLo = mu.feb(CometParams.PROP_remove_precursor_tolerance,
+                        UiSpinnerDouble.builder(1.5, 0, 10, 0.1).setCols(5).setFormat(df1).create())
+                .label("removal tol (Da)").create();
 
         mu.add(p, feMinPeaks.label(), mu.ccR());
         mu.add(p, feMinPeaks.comp).split(3).spanX();
@@ -933,11 +931,9 @@ public class CometPanel extends JPanelBase {
         mu.add(p, feClearRangeMzHi.comp).wrap();
 
         mu.add(p, feRemovePrecPeak.label(), mu.ccR());
-        mu.add(p, feRemovePrecPeak.comp).split(5).spanX();
+        mu.add(p, feRemovePrecPeak.comp).split(3).spanX();
         mu.add(p, fePrecRemoveRangeLo.label());
-        mu.add(p, fePrecRemoveRangeLo.comp);
-        mu.add(p, new JLabel("-"));
-        mu.add(p, fePrecRemoveRangeHi.comp).pushX().wrap();
+        mu.add(p, fePrecRemoveRangeLo.comp).pushX().wrap();;
 
         return p;
     }
@@ -1070,7 +1066,7 @@ public class CometPanel extends JPanelBase {
         }
     }
 
-    private void formFrom(MsfraggerParams params) {
+    private void formFrom(CometParams params) {
         Map<String, String> map = confToUiMap(params);
         Map<String, String> prependedMap = MapUtils.remapKeys(map, k -> StringUtils.prependOnce(k, TAB_PREFIX));
         Map<String, String> translatedMap = FragpipeCacheUtils.translateValuesToUi(prependedMap);
@@ -1083,7 +1079,7 @@ public class CometPanel extends JPanelBase {
         setJTableColSize(tableFixMods, 0, 20, 150, 50);
     }
 
-    private MsfraggerParams formCollect() {
+    private CometParams formCollect() {
         Map<String, String> map = formToMap();
 
         // ram and threads parameters have been moved to Workflow tab, need to re-inject them when saving fragger params
@@ -1091,7 +1087,7 @@ public class CometPanel extends JPanelBase {
         map.put(CometParams.PROP_num_threads, itos(tabWorkflow.getThreads()));
 
 //        CometParams ps = paramsFromMap(map);
-        MsfraggerParams params = paramsFromMap(map);
+        CometParams params = paramsFromMap(map);
 
         // before collecting mods, make sure that no table cell editor is open
         stopJTableEditing(tableFixMods);
@@ -1131,15 +1127,15 @@ public class CometPanel extends JPanelBase {
         return m;
     }
 
-    public MsfraggerParams getParams() {
+    public CometParams getParams() {
         return formCollect();
     }
 
     /**
-     * Converts textual representations of all fields in the form to stadard {@link MsfraggerParams}.
+     * Converts textual representations of all fields in the form to stadard {@link CometParams}.
      */
-    private MsfraggerParams paramsFromMap(Map<String, String> map) {
-        MsfraggerParams p = new MsfraggerParams();
+    private CometParams paramsFromMap(Map<String, String> map) {
+        CometParams p = new CometParams();
         final double[] precursorRemoveRange = new double[2];
         final double[] clearMzRange = new double[2];
         final double[] digestMassRange = new double[2];
@@ -1155,7 +1151,7 @@ public class CometPanel extends JPanelBase {
                 Function<String, String> converter = CONVERT_TO_FILE.getOrDefault(k, s -> s);
                 String converted = converter.apply(v);
 
-                if (MsfraggerParams.PROP_fragment_ion_series.equals(k) && StringUtils.isNullOrWhitespace(converted)) {
+                if (PROP_MISC_ion_series.equals(k) && StringUtils.isNullOrWhitespace(converted)) {
                     // don't set ion series to be used in the fragger config file if the string is emtpty
                     continue;
                 }
@@ -1201,15 +1197,15 @@ public class CometPanel extends JPanelBase {
             }
         }
 
-        FraggerOutputType outType = p.getOutputFormat();
-        if (outType == null) {
-            throw new IllegalStateException("FraggerOutputType was not set by the point where we needed to provide the output extension.");
-        }
+//        FraggerOutputType outType = p.getOutputFormat();
+//        if (outType == null) {
+//            throw new IllegalStateException("FraggerOutputType was not set by the point where we needed to provide the output extension.");
+//        }
 
         return p;
     }
 
-    private Map<String, String> confToUiMap(MsfraggerParams params) {
+    private Map<String, String> confToUiMap(CometParams params) {
         HashMap<String, String> map = new HashMap<>();
         for (Map.Entry<String, Props.Prop> e : params.getProps().getMap().entrySet()) {
             if (e.getValue().isEnabled) {
@@ -1225,7 +1221,6 @@ public class CometPanel extends JPanelBase {
         }
 
         // special treatment of some fields
-        double[] precursorRemoveRange = params.getRemovePrecursorRange();
         double[] clearMzRange = params.getClearMzRange();
         double[] digestMassRange = params.getDigestMassRange();
         int[] precursorCharge = params.getPrecursorCharge();
@@ -1237,8 +1232,6 @@ public class CometPanel extends JPanelBase {
         map.put(PROP_misc_comet_digest_mass_hi, fmt.format(digestMassRange[1]));
         map.put(PROP_MISC_comet_precursor_charge_lo, fmt.format(precursorCharge[0]));
         map.put(PROP_MISC_comet_precursor_charge_hi, fmt.format(precursorCharge[1]));
-        map.put(PROP_MISC_comet_remove_precursor_range_lo, fmt2.format(precursorRemoveRange[0]));
-        map.put(PROP_MISC_comet_remove_precursor_range_hi, fmt2.format(precursorRemoveRange[1]));
 
         return map;
     }
@@ -1276,8 +1269,8 @@ public class CometPanel extends JPanelBase {
     }
 
     @Subscribe
-    public void on(MessageMsfraggerParamsUpdate m) {
-        log.debug("Got MessageMsfraggerParamsUpdate, updating TabMsfragger via formFrom(m.params)");
+    public void on(MessageCometParamsUpdate m) {
+        log.debug("Got MessageCometParamsUpdate, updating TabComet via formFrom(m.params)");
         formFrom(m.params);
     }
 
@@ -1324,7 +1317,7 @@ public class CometPanel extends JPanelBase {
                         Fragpipe.propsVarGet(ThisAppProps.PROP_FRAGGER_PARAMS_FILE_IN),
                         Fragpipe.propsVarGet(PROP_FILECHOOSER_LAST_PATH))).create();
 
-        fc.setSelectedFile(new File(MsfraggerParams.CACHE_FILE));
+        fc.setSelectedFile(new File(CometParams.CACHE_FILE));
         final Component parent = SwingUtils.findParentFrameForDialog(this);
         if (JFileChooser.APPROVE_OPTION == fc.showSaveDialog(parent)) {
             File selectedFile = fc.getSelectedFile();
@@ -1346,7 +1339,7 @@ public class CometPanel extends JPanelBase {
                 }
             }
             try {
-                MsfraggerParams params = formCollect();
+                CometParams params = formCollect();
                 params.save(new FileOutputStream(path.toFile()));
                 params.save();
 
@@ -1372,9 +1365,9 @@ public class CometPanel extends JPanelBase {
 
             if (Files.exists(p)) {
                 try {
-                    MsfraggerParams params = formCollect();
+                    CometParams params = formCollect();
                     params.load(new FileInputStream(f), true);
-                    Bus.post(new MessageMsfraggerParamsUpdate(params));
+                    Bus.post(new MessageCometParamsUpdate(params));
                     params.save();
 
                 } catch (Exception ex) {
@@ -1405,9 +1398,9 @@ public class CometPanel extends JPanelBase {
     }
 
     private void loadDefaults(SearchTypeProp type) {
-        log.debug("TabMsfragger loadDefaults() called for SearchTypeProp type={}", type.name());
-        MsfraggerParams params = new MsfraggerParams();
-        params.loadDefaults(type);
+        log.debug("TabComet loadDefaults() called for SearchTypeProp type={}", type.name());
+        CometParams params = new CometParams();
+        params.loadDefault();
         formFrom(params);
 
         // reset some fields that are not part of Fragger config file
