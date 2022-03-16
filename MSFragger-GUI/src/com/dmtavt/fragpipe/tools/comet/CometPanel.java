@@ -158,6 +158,7 @@ public class CometPanel extends JPanelBase {
     private static final String PROP_MISC_ion_series = "misc.ion_series";
 
     private UiText uiTextPathParams;
+    private boolean isRunBackupVar = true;
 
 
     private static String itos(int i) {
@@ -421,6 +422,13 @@ public class CometPanel extends JPanelBase {
         return pContent;
     }
 
+
+    public String getParamsFilePath() {
+        if (showSimplePanel && uiTextPathParams != null) {
+            return uiTextPathParams.getNonGhostText();
+        }
+        throw new IllegalStateException("Params file needs to be created in graph config stage when not a simple UI is used");
+    }
 
     private JPanel createPanelSimpleParams() {
         uiTextPathParams = UiUtils.uiTextBuilder().cols(30).create();
@@ -1286,7 +1294,11 @@ public class CometPanel extends JPanelBase {
 
     @Subscribe(sticky = true, threadMode = ThreadMode.MAIN_ORDERED)
     public void on(NoteConfigSearchEngine m) {
-        updateEnabledStatus(this, m.type == NoteConfigSearchEngine.Type.Comet && m.isValid());
+        final boolean isRun = m.type == NoteConfigSearchEngine.Type.Comet;
+        log.debug("Setting Fragger isRun: {}", isRun);
+        checkRun.setSelected(isRun);
+        isRunBackupVar = isRun;
+        updateEnabledStatus(this, isRun && m.isValid());
     }
 
     @Subscribe(sticky = true, threadMode = ThreadMode.MAIN_ORDERED)
@@ -1312,14 +1324,6 @@ public class CometPanel extends JPanelBase {
 
     public boolean isRun() {
         return SwingUtils.isEnabledAndChecked(checkRun);
-    }
-
-    public boolean isWriteCalMgf() {
-        return uiCheckWriteCalibratedMgf.isSelected();
-    }
-
-    public void setWriteCalMgf(boolean selected) {
-        uiCheckWriteCalibratedMgf.setSelected(selected);
     }
 
     public String getOutputFileExt() {

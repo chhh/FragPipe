@@ -2,16 +2,10 @@ package com.dmtavt.fragpipe.cmd;
 
 import com.dmtavt.fragpipe.Fragpipe;
 import com.dmtavt.fragpipe.api.InputLcmsFile;
-import com.dmtavt.fragpipe.api.PyInfo;
-import com.dmtavt.fragpipe.exceptions.NoStickyException;
-import com.dmtavt.fragpipe.messages.NoteConfigPython;
-import com.dmtavt.fragpipe.tools.comet.CometCleavageType;
-import com.dmtavt.fragpipe.tools.dbsplit.DbSplit2;
-import com.dmtavt.fragpipe.tools.enums.CleavageType;
+import com.dmtavt.fragpipe.tools.comet.CometParams;
 import com.dmtavt.fragpipe.tools.enums.MassTolUnits;
 import com.dmtavt.fragpipe.tools.enums.PrecursorMassTolUnits;
 import com.dmtavt.fragpipe.tools.fragger.MsfraggerParams;
-import com.github.chhh.utils.OsUtils;
 import com.github.chhh.utils.StringUtils;
 import com.github.chhh.utils.UsageTrigger;
 import org.slf4j.Logger;
@@ -21,7 +15,8 @@ import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
 import java.awt.*;
 import java.io.File;
-import java.io.FileOutputStream;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -126,7 +121,7 @@ public class CmdComet extends CmdBase {
         }
     }
     
-    public boolean configure(Component comp, boolean isDryRun, Path jarFragpipe, UsageTrigger binComet, String pathFasta, String cometParamsPath, int numSlices, int ramGb, List<InputLcmsFile> lcmsFiles, final String decoyTag, boolean hasDda, boolean hasDia, boolean hasGpfDia, boolean hasDiaLib, boolean isRunDiaU) {
+    public boolean configure(Component comp, boolean isDryRun, Path jarFragpipe, UsageTrigger binComet, String pathFasta, String cometParamsPath, int ramGb, List<InputLcmsFile> lcmsFiles, final String decoyTag, boolean hasDda, boolean hasDia, boolean hasGpfDia, boolean hasDiaLib, boolean isRunDiaU) {
 
         initPreConfig();
         if (StringUtils.isNullOrWhitespace(binComet.getBin())) {
@@ -203,42 +198,15 @@ public class CmdComet extends CmdBase {
 //        Map<InputLcmsFile, List<Path>> mapLcmsToTsv = outputs(lcmsFiles, "tsv", wd);
 //        Map<InputLcmsFile, List<Path>> mapLcmsToPin = outputs(lcmsFiles, "pin", wd);
 
-        final List<String> javaCmd = Arrays.asList(
-                Fragpipe.getBinJava(), "-jar", "-Dfile.encoding=UTF-8", "-Xmx" + ramGb + "G");
-
-
 
         Map<String, List<InputLcmsFile>> t = new TreeMap<>();
 
         for (InputLcmsFile inputLcmsFile : lcmsFiles) {
-            if (inputLcmsFile.getDataType().contentEquals("DDA")) {
-                List<InputLcmsFile> tt = t.get("DDA");
-                if (tt == null) {
-                    tt = new ArrayList<>();
-                    tt.add(inputLcmsFile);
-                    t.put("DDA", tt);
-                } else {
-                    tt.add(inputLcmsFile);
-                }
-            } else if (inputLcmsFile.getDataType().contentEquals("DIA") || inputLcmsFile.getDataType().contentEquals("DIA-Lib")) { // searching DIA and DIA-Lib together
-                List<InputLcmsFile> tt = t.get("DIA");
-                if (tt == null) {
-                    tt = new ArrayList<>();
-                    tt.add(inputLcmsFile);
-                    t.put("DIA", tt);
-                } else {
-                    tt.add(inputLcmsFile);
-                }
-            } else if (inputLcmsFile.getDataType().contentEquals("GPF-DIA")) {
-                List<InputLcmsFile> tt = t.get("GPF-DIA");
-                if (tt == null) {
-                    tt = new ArrayList<>();
-                    tt.add(inputLcmsFile);
-                    t.put("GPF-DIA", tt);
-                } else {
-                    tt.add(inputLcmsFile);
-                }
+            String key = inputLcmsFile.getDataType();
+            if ("DIA-Lib".equals(key)) {
+                key = "DIA"; // merge DIA-Lib and DIA keys
             }
+            t.computeIfAbsent(key, k -> new ArrayList<>()).add(inputLcmsFile);
         }
 
         for (Map.Entry<String, List<InputLcmsFile>> e : t.entrySet()) {
@@ -247,23 +215,10 @@ public class CmdComet extends CmdBase {
                 List<String> cmd = new ArrayList<>();
                 cmd.add(binComet.useBin());
 
-                // Execution order after sorting: DDA, DIA and DIA-Lib, GPF-DIA. MSFragger would stop if there were wide isolation windows in DDA mode, which makes it better to let DDA be executed first.
-                if (e.getKey().contentEquals("DDA")) {
-                    cmd.add(savedDdaParamsPath.toString());
-                } else if (e.getKey().contentEquals("DIA")) {
-                    cmd.add(savedDiaParamsPath.toString());
-                } else if (e.getKey().contentEquals("GPF-DIA")) {
-                    cmd.add(savedGpfDiaParamsPath.toString());
-                }
-
                 // check if the command length is ok so far
                 sb.append(String.join(" ", cmd));
                 if (sb.length() > commandLenLimit) {
-                    if (Fragpipe.headless) {
-                        log.error("MSFragger command line length too large even for a single file.");
-                    } else {
-                        JOptionPane.showMessageDialog(comp, "MSFragger command line length too large even for a single file.", "Error", JOptionPane.ERROR_MESSAGE);
-                    }
+                    showError("MSFragger command line length too large even for a single file.", comp);
                     return false;
                 }
 
@@ -283,21 +238,28 @@ public class CmdComet extends CmdBase {
 
                 ProcessBuilder pb = new ProcessBuilder(cmd);
 
-                if (isSlicing) {
-                    PyInfo.modifyEnvironmentVariablesForPythonSubprocesses(pb);
-                    pb.environment().put("PYTHONIOENCODING", "utf-8");
-                    pb.environment().put("PYTHONUNBUFFERED", "true");
-                }
-
                 pb.directory(wd.toFile());
 
                 pbis.add(PbiBuilder.from(pb));
                 sb.setLength(0);
 
+                CometParams cometParams = new CometParams();
+                try {
+                    cometParams.load(new FileInputStream(cometParamsPath), true);
+                } catch (FileNotFoundException ex) {
+                    showError("Comet params file does not exist: " + cometParamsPath, comp);
+                    return false;
+                } catch (IOException ex) {
+                    showError("Could not read Comet params file", comp);
+                    return false;
+                }
+                final String cometPepxmlOut = cometParams.getProps().getProp("output_pepxmlfile", "1").value;
+                final boolean isOutputPepXml = "1".equals(cometPepxmlOut);
+
                 // move the pepxml files if the output directory is not the same as where
                 // the lcms files were
                 for (InputLcmsFile f : addedLcmsFiles) {
-                    if (fraggerOutputType.valueInParamsFile().contains("pepXML")) {
+                    if (isOutputPepXml) {
                         List<Path> pepxmlWhereItShouldBeList = mapLcmsToPepxml.get(f);
                         if (pepxmlWhereItShouldBeList == null || pepxmlWhereItShouldBeList.isEmpty())
                             throw new IllegalStateException("LCMS file mapped to no pepxml file");
@@ -309,34 +271,6 @@ public class CmdComet extends CmdBase {
                                         .pbsMoveFiles(jarFragpipe, pepxmlWhereItShouldBe.getParent(), true,
                                                 Collections.singletonList(pepxmlAsCreatedByFragger));
                                 pbis.addAll(PbiBuilder.from(pbsMove, NAME + " move pepxml"));
-                            }
-                        }
-                    }
-
-                    if (params.getShiftedIons() || fraggerOutputType.valueInParamsFile().contains("tsv")) {
-                        List<Path> tsvWhereItShouldBeList = mapLcmsToTsv.get(f);
-                        for (Path tsvWhereItShouldBe : tsvWhereItShouldBeList) {
-                            String tsvFn = tsvWhereItShouldBe.getFileName().toString();
-                            Path tsvAsCreatedByFragger = f.getPath().getParent().resolve(tsvFn);
-                            if (!tsvAsCreatedByFragger.equals(tsvWhereItShouldBe)) {
-                                List<ProcessBuilder> pbsMove = ToolingUtils
-                                        .pbsMoveFiles(jarFragpipe, tsvWhereItShouldBe.getParent(), true,
-                                                Collections.singletonList(tsvAsCreatedByFragger));
-                                pbis.addAll(PbiBuilder.from(pbsMove, NAME + " move tsv"));
-                            }
-                        }
-                    }
-
-                    if (!f.getDataType().contentEquals("DDA") || fraggerOutputType.valueInParamsFile().contains("pin")) {
-                        List<Path> pinWhereItShouldBeList = mapLcmsToPin.get(f);
-                        for (Path pinWhereItShouldBe : pinWhereItShouldBeList) {
-                            String pinFn = pinWhereItShouldBe.getFileName().toString();
-                            Path pinAsCreatedByFragger = f.getPath().getParent().resolve(pinFn);
-                            if (!pinAsCreatedByFragger.equals(pinWhereItShouldBe)) {
-                                List<ProcessBuilder> pbsMove = ToolingUtils
-                                        .pbsMoveFiles(jarFragpipe, pinWhereItShouldBe.getParent(), true,
-                                                Collections.singletonList(pinAsCreatedByFragger));
-                                pbis.addAll(PbiBuilder.from(pbsMove, NAME + " move pin"));
                             }
                         }
                     }
@@ -383,6 +317,10 @@ public class CmdComet extends CmdBase {
         }
     }
 
+    public String getOutputFileExt() {
+        return "pepXML";
+    }
+
 
     private static class GetSupportedExts {
 
@@ -403,18 +341,8 @@ public class CmdComet extends CmdBase {
         }
 
         public GetSupportedExts invoke() {
-            desc = new ArrayList<>(Arrays.asList("mzML", "mzXML", "mgf", "mzBIN"));
-            exts = new ArrayList<>(Arrays.asList(".mgf", ".mzml", ".mzxml", ".mzbin"));
-//      if (searchPaths != null && !searchPaths.isEmpty()) {
-//        if (searchExtLibsThermo(searchPaths) != null) {
-            desc.add("Thermo RAW");
-            exts.add(".raw");
-//        }
-//        if (searchExtLibsBruker(searchPaths) != null) {
-            desc.add("Buker PASEF .d");
-            exts.add(".d");
-//        }
-//      }
+            desc = new ArrayList<>(Arrays.asList("mzML", "mzXML"));
+            exts = new ArrayList<>(Arrays.asList(".mgf", ".mzml"));
             return this;
         }
     }
