@@ -103,6 +103,7 @@ public class CometPanel extends JPanelBase {
     public static final String PROP_FILECHOOSER_LAST_PATH = "comet.filechooser.path";
     public static final String CACHE_FORM = "comet-form" + ThisAppProps.TEMP_FILE_EXT;
     public static final String CACHE_PROPS = "comet-props" + ThisAppProps.TEMP_FILE_EXT;
+    public static final Map<String, String> MAP_COMET_ISO_ERROR_CODES = new HashMap<>();
 
     public static final LinkedHashMap<String, SearchTypeProp> SEARCH_TYPE_NAME_MAPPING;
     private static final String[] TABLE_VAR_MODS_COL_NAMES = {"Enabled", "Site (editable)",
@@ -134,7 +135,7 @@ public class CometPanel extends JPanelBase {
             .asList(GLYCO_OPTION_off, GLYCO_OPTION_nglycan, GLYCO_OPTION_labile);
     private static final String LOAD_CUSTOM_CONFIG_OPTION = "Custom Comet parameter file from disk";
 
-    private static final java.util.List<MsfraggerEnzyme> ENZYMES = new EnzymeProvider().get();
+    private static final java.util.List<MsfraggerEnzyme> ENZYMES = new CometEnzymeProvider().get();
     //public static FileNameExtensionFilter fnExtFilter = new FileNameExtensionFilter("LCMS files (mzML/mzXML/mgf/raw/d)", "mzml", "mzxml");
     private static String[] PROPS_MISC = {
             PROP_misc_adjust_precurosr_mass,
@@ -151,6 +152,7 @@ public class CometPanel extends JPanelBase {
     };
 
     UiCombo uiComboMassDiffToVariableMod;
+    UiCombo uiComboIsoErrors;
 
     private static String itos(int i) {
         return Integer.toString(i);
@@ -229,6 +231,13 @@ public class CometPanel extends JPanelBase {
 
         SEARCH_TYPE_NAME_MAPPING = new LinkedHashMap<>();
         SEARCH_TYPE_NAME_MAPPING.put("Closed Search default config", SearchTypeProp.closed);
+
+        MAP_COMET_ISO_ERROR_CODES.put("0", "none");
+        MAP_COMET_ISO_ERROR_CODES.put("1", "0/+1");
+        MAP_COMET_ISO_ERROR_CODES.put("2", "0/+1/+2");
+        MAP_COMET_ISO_ERROR_CODES.put("3", "0/+1/+2/+3");
+        MAP_COMET_ISO_ERROR_CODES.put("4", "-8/-4/0/+4/+8");
+        MAP_COMET_ISO_ERROR_CODES.put("5", "-1/0/1/2/3");
     }
 
     private UiCheck checkRun;
@@ -239,7 +248,6 @@ public class CometPanel extends JPanelBase {
     public UiCombo uiComboOutputType;
     private UiCombo uiComboMassMode;
     private UiSpinnerInt uiSpinnerDbsplit;
-    private UiCheck uiCheckLocalizeDeltaMass;
     private UiText uiTextCustomIonSeries;
     private JLabel labelCustomIonSeries;
     private Map<Component, Boolean> enablementMapping = new HashMap<>();
@@ -258,13 +266,10 @@ public class CometPanel extends JPanelBase {
     private UiText uiTextEnzymeName2;
 
     private UiCombo uiComboLoadDefaultsNames;
-    private UiText uiTextMassOffsets;
     private UiSpinnerDouble uiSpinnerPrecTolLo;
     private UiSpinnerDouble uiSpinnerPrecTolHi;
     private UiCombo uiComboPrecursorTolUnits;
     private final Map<String, String> cache = new HashMap<>();
-    private UiText uiTextIsoErr;
-    private JEditorPane epMassOffsets;
     private JPanel pTop;
     private JPanel pBasic;
     private JPanel pMods;
@@ -285,19 +290,6 @@ public class CometPanel extends JPanelBase {
     @Override
     protected String getComponentNamePrefix() {
         return TAB_PREFIX;
-    }
-
-    public UiText getUiTextIsoErr() {
-        return uiTextIsoErr;
-    }
-
-    public boolean isOpenMassOffsetSearch() {
-        Object selected = uiComboPrecursorTolUnits.getSelectedItem();
-        if (selected == null || StringUtils.isNullOrWhitespace((String) selected)) {
-            return false;
-        }
-
-        return (PrecursorMassTolUnits.valueOf((String) selected).valueInParamsFile() == 0 && uiSpinnerPrecTolLo.getActualValue() < -3 && uiSpinnerPrecTolHi.getActualValue() > 3) || !((HtmlStyledJEditorPane) epMassOffsets).getTextLessHtml().trim().contentEquals("0");
     }
 
     public int getMassDiffToVariableMod() {
@@ -427,10 +419,10 @@ public class CometPanel extends JPanelBase {
         java.util.List<String> units = Seq.of(PrecursorMassTolUnits.values()).map(PrecursorMassTolUnits::name).toList();
         uiComboPrecursorTolUnits = UiUtils.createUiCombo(units);
         FormEntry fePrecTolUnits = mu.feb(MsfraggerParams.PROP_precursor_mass_units, uiComboPrecursorTolUnits).label("Precursor mass tolerance").create();
-        uiSpinnerPrecTolLo = new UiSpinnerDouble(-20, -10000, 10000, 1,
-                new DecimalFormat("0.#"));
-        uiSpinnerPrecTolLo.setColumns(4);
-        FormEntry fePrecTolLo = mu.feb(MsfraggerParams.PROP_precursor_mass_lower, uiSpinnerPrecTolLo).create();
+//        uiSpinnerPrecTolLo = new UiSpinnerDouble(-20, -10000, 10000, 1,
+//                new DecimalFormat("0.#"));
+//        uiSpinnerPrecTolLo.setColumns(4);
+//        FormEntry fePrecTolLo = mu.feb(MsfraggerParams.PROP_precursor_mass_lower, uiSpinnerPrecTolLo).create();
         uiSpinnerPrecTolHi = new UiSpinnerDouble(+20, -10000, 10000, 1,
                 new DecimalFormat("0.#"));
         uiSpinnerPrecTolHi.setColumns(4);
@@ -473,30 +465,35 @@ public class CometPanel extends JPanelBase {
 
 
         // mass calibrate
-        uiComboMassCalibrate = UiUtils.createUiCombo(CALIBRATE_LABELS);
-        String minFraggerVer = MsfraggerProps.getProperties().getProperty(MsfraggerProps.PROP_MIN_VERSION_FRAGGER_MASS_CALIBRATE, "201904");
-        FormEntry feCalibrate = mu.feb(MsfraggerParams.PROP_calibrate_mass, uiComboMassCalibrate)
-                .label("<html>Calibration and Optimization")
-                .tooltip(String.format("<html>Requires MSFragger %s+. Not compatible with Database Splitting.", minFraggerVer)).create();
+//        uiComboMassCalibrate = UiUtils.createUiCombo(CALIBRATE_LABELS);
+//        String minFraggerVer = MsfraggerProps.getProperties().getProperty(MsfraggerProps.PROP_MIN_VERSION_FRAGGER_MASS_CALIBRATE, "201904");
+//        FormEntry feCalibrate = mu.feb(MsfraggerParams.PROP_calibrate_mass, uiComboMassCalibrate)
+//                .label("<html>Calibration and Optimization")
+//                .tooltip(String.format("<html>Requires MSFragger %s+. Not compatible with Database Splitting.", minFraggerVer)).create();
 
-        uiTextIsoErr = UiUtils.uiTextBuilder().cols(10).filter("[^\\d/-]+").text("-1/0/1/2").create();
-        FormEntry feIsotopeError = mu.feb(MsfraggerParams.PROP_isotope_error, uiTextIsoErr)
+//        uiTextIsoErr = UiUtils.uiTextBuilder().cols(10).filter("[^\\d/-]+").text("-1/0/1/2").create();
+        final List<String> isoCorrectionVals = MAP_COMET_ISO_ERROR_CODES.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(Map.Entry::getValue).collect(Collectors.toList());
+        uiComboIsoErrors = UiUtils.createUiCombo(isoCorrectionVals);
+
+        FormEntry feIsotopeError = mu.feb(MsfraggerParams.PROP_isotope_error, uiComboIsoErrors)
                 .label("Isotope error")
                 .tooltip("<html>String of the form 0/1/2/3 indicating which isotopic\n"
                         + "peak selection errors MSFragger will try to correct.")
                 .create();
 
         mu.add(p, fePrecTolUnits.label(), mu.ccR());
-        mu.add(p, fePrecTolUnits.comp).split(4);
-        mu.add(p, fePrecTolLo.comp);
-        mu.add(p, new JLabel("-"));
+        mu.add(p, fePrecTolUnits.comp).split(2);
+//        mu.add(p, fePrecTolLo.comp);
+//        mu.add(p, new JLabel("-"));
         mu.add(p, fePrecTolHi.comp);
         mu.add(p, feFragTolUnits.label(), mu.ccR()).gapLeft("10px");
         mu.add(p, feFragTolUnits.comp).split(2);
         mu.add(p, feFragTol.comp).pushX().wrap();
 
-        mu.add(p, feCalibrate.label(), mu.ccR());
-        mu.add(p, feCalibrate.comp);
+//        mu.add(p, feCalibrate.label(), mu.ccR());
+//        mu.add(p, feCalibrate.comp);
         mu.add(p, feIsotopeError.label(), mu.ccR());
         mu.add(p, feIsotopeError.comp).spanX().wrap();
 
@@ -725,91 +722,6 @@ public class CometPanel extends JPanelBase {
         return pBase;
     }
 
-    private JPanel createPanelGlyco() {
-        JPanel p = mu.newPanel("Glyco/Labile Mods", mu.lcFillXNoInsetsTopBottom());
-
-        final UiCombo uiComboGlyco = UiUtils.createUiCombo(GLYCO_OPTIONS_UI);
-        FormEntry feGlycoSearchMode = mu.feb(uiComboGlyco)
-                .name(MsfraggerParams.PROP_labile_search_mode)
-                .label("Labile modification search mode")
-                .tooltip("labile mode assumes delta mass will dissociate from peptide\n" +
-                        "during MS2. Uses restrict delta mass parameter to determine allowed sites.\n" +
-                        "Allows diagnostic and Y ions\n" +
-                        "nglycan mode overrides allowed sites to be the N-X-S/T sequon and\n" +
-                        "enables all other labile mode settings.")
-                .create();
-
-        final UiSpinnerDouble uiSpinnerMinInt = UiSpinnerDouble.builder(0, 0, 1, 0.1).setFormat("#.##")
-                .setCols(5).create();
-        FormEntry feOxoniumIonMinimumIntensity = mu.feb(uiSpinnerMinInt)
-                .name(MsfraggerParams.PROP_diagnostic_intensity_filter)
-                .label("Diagnostic ion minimum intensity")
-                .tooltip("Minimum diagnostic ion intensity to search for mass offsets/open search.\n" +
-                        "Summed intensity of all diagnostic fragment masses (below) from a spectrum.\n" +
-                        "Set to 0 to disable (all spectra will be searched for mass offsets/open search)")
-                .create();
-
-        final HtmlStyledJEditorPane ep1 = new HtmlStyledJEditorPane();
-        ep1.setPreferredSize(new Dimension(100, 25));
-        mu.border(ep1, new LineBorder(Color.LIGHT_GRAY, 1));
-        FormEntry feYIonMasses = mu.feb(ep1).name(MsfraggerParams.PROP_Y_type_masses)
-                .label("Y ion masses")
-                .tooltip("List of possible Y ion (intact peptide + partially fragmented modification) masses\n" +
-                        "Should include 0 in most cases. Space or / separated\n" +
-                        "example: '0 203.0794 365.1322'")
-                .create();
-
-        final HtmlStyledJEditorPane ep2 = new HtmlStyledJEditorPane();
-        ep2.setPreferredSize(new Dimension(100, 25));
-        mu.border(ep2, new LineBorder(Color.LIGHT_GRAY, 1));
-        FormEntry feOxoniumIons = mu.feb(ep2).name(MsfraggerParams.PROP_diagnostic_fragments)
-                .label("Diagnostic fragment masses")
-                .tooltip("List of possible diagnostic fragment ions to consider.\n" +
-                        "Not used if Diagnostic Ion Minimum Intensity is 0\n" +
-                        "Space or / separated")
-                .create();
-
-        final HtmlStyledJEditorPane ep3 = new HtmlStyledJEditorPane();
-        ep3.setPreferredSize(new Dimension(100, 25));
-        mu.border(ep3, new LineBorder(Color.LIGHT_GRAY, 1));
-        FormEntry feRemainderIons = mu.feb(ep3).name(MsfraggerParams.PROP_remainder_masses)
-                .label("Remainder fragment masses")
-                .tooltip("List of possible remainder fragment ions to consider.\n" +
-                        "Remainder masses are partial modification masses left on b/y ions\n" +
-                        "after fragmentation.\n ")
-                .create();
-
-        uiComboGlyco.addItemListener(e -> {
-            // needs to be done after components to be turned on/off have been created
-            final String selected = (String) uiComboGlyco.getSelectedItem();
-            final boolean enabled = !MsfraggerParams.GLYCO_OPTION_off.equalsIgnoreCase(selected);
-            final boolean sitesEnabled = enabled && (GLYCO_OPTION_labile.equalsIgnoreCase(selected));
-            updateEnabledStatus(uiSpinnerMinInt, enabled);
-            updateEnabledStatus(ep1, enabled);
-            updateEnabledStatus(ep2, enabled);
-            updateEnabledStatus(ep3, enabled);
-        });
-        // trigger the item listener on startup
-        // (done with indexes so that it breaks if the list and OFF option are changed)
-        int indexGlycoOff = MsfraggerParams.GLYCO_OPTIONS.indexOf(MsfraggerParams.GLYCO_OPTION_off);
-        uiComboGlyco.setSelectedItem(null);
-        uiComboGlyco.setSelectedItem(MsfraggerParams.GLYCO_OPTIONS.get(indexGlycoOff));
-
-
-        mu.add(p, feGlycoSearchMode.label(), mu.ccR());
-        mu.add(p, feGlycoSearchMode.comp);
-        mu.add(p, feOxoniumIonMinimumIntensity.label(), mu.ccR());
-        mu.add(p, feOxoniumIonMinimumIntensity.comp).pushX().wrap();
-        mu.add(p, feYIonMasses.label(), mu.ccR());
-        mu.add(p, feYIonMasses.comp).spanX().growX().wrap();
-        mu.add(p, feOxoniumIons.label(), mu.ccR());
-        mu.add(p, feOxoniumIons.comp).spanX().growX().wrap();
-        mu.add(p, feRemainderIons.label(), mu.ccR());
-        mu.add(p, feRemainderIons.comp).spanX().growX().wrap();
-
-        return p;
-    }
-
     private static Object[][] convertModsToVarModsData(List<Mod> mods) {
         Object[][] data = new Object[MsfraggerParams.VAR_MOD_COUNT_MAX][TABLE_VAR_MODS_COL_NAMES.length];
         for (int i = 0; i < data.length; i++) {
@@ -975,53 +887,9 @@ public class CometPanel extends JPanelBase {
     private JPanel createPanelAdvancedOptions() {
         JPanel p = mu.newPanel("Advanced Options", new LC());
 
-        mu.add(p, createPanelMassOffsets()).growX().wrap();
-        mu.add(p, createPanelGlyco()).growX().wrap();
         mu.add(p, createPanelAdvancedSpectral()).growX().wrap();
-        mu.add(p, createPanelAdvancedOpenSearch()).growX().wrap();
         mu.add(p, createPanelAdvancedOutput()).growX().wrap();
         mu.add(p, createPanelAdvancedPeakMatch()).growX().wrap();
-
-        return p;
-    }
-
-    private JPanel createPanelMassOffsets() {
-        JPanel p = mu.newPanel("Mass Offsets", true);
-
-        UiText uiTextRestrictDeltamassTo = UiUtils.uiTextBuilder().ghost("Restrict delta mass to certain amino acids").filter("[^A-Zall-]")
-                .cols(20).create();
-        FormEntry feRestrictDeltamassTo = mu.feb(uiTextRestrictDeltamassTo).name(MsfraggerParams.PROP_restrict_deltamass_to)
-                .tooltip("Allowed mod sites in Open Search / Mass Offset Search /Glyco mode").label("Restrict delta mass to")
-                .create();
-
-        // mass offsets text field separately
-        String tooltipMassOffsets = "<html>Creates multiple precursor tolerance windows with<br>\n"
-                + "specified mass offsets. These values are multiplexed<br>\n"
-                + "with the isotope error option.<br><br>\n\n"
-                + "For example, value \"0/79.966\" can be used<br>\n"
-                + "as a restricted open search that looks for unmodified<br>\n"
-                + "and phosphorylated peptides (on any residue).<br><br>\n\n"
-                + "Setting isotope_error to 0/1/2 in combination<br>\n"
-                + "with this example will create search windows around<br>\n"
-                + "(0,1,2,79.966, 80.966, 81.966). Masses can be separated\n"
-                + " with \"/\" or space.";
-
-        epMassOffsets = new HtmlStyledJEditorPane();
-        epMassOffsets.setPreferredSize(new Dimension(100, 25));
-        //epMassOffsets.setMaximumSize(new Dimension(200, 25));
-        epMassOffsets.setBorder(new LineBorder(Color.LIGHT_GRAY, 1));
-        //epMassOffsets.setFont(new JLabel().getFont());
-
-        uiTextMassOffsets = UiUtils.uiTextBuilder().filter("[^-\\(\\)\\./,\\d ]").text("0").create();
-
-        FormEntry feMassOffsets = mu.feb(MsfraggerParams.PROP_mass_offsets, epMassOffsets)
-                .label("Mass Offsets")
-                .tooltip(tooltipMassOffsets).create();
-        //mu.add(p, feMassOffsets.label()).wrap();
-
-        mu.add(p, feMassOffsets.comp).growX().spanX().wrap();
-        mu.add(p, feRestrictDeltamassTo.label(), mu.ccR());
-        mu.add(p, feRestrictDeltamassTo.comp).spanX().pushX().growX().wrap();
 
         return p;
     }
@@ -1242,87 +1110,7 @@ public class CometPanel extends JPanelBase {
         return p;
     }
 
-    private JPanel createPanelAdvancedOpenSearch() {
-        JPanel p = new JPanel(new MigLayout(new LC()));
-        p.setBorder(new TitledBorder("Open Search Options"));
-        FormEntry feTrackZeroTopN = mu.feb(MsfraggerParams.PROP_track_zero_topN,
-                new UiSpinnerInt(0, 0, 1000, 5, 5)).label("Track zero top N").create();
-        FormEntry feAddTopNComplementary = mu.feb(MsfraggerParams.PROP_add_topN_complementary,
-                new UiSpinnerInt(0, 0, 1000, 2, 5)).label("Add top N complementary").create();
-        UiSpinnerDouble spinnerZeroBinAcceptExpect = new UiSpinnerDouble(0, 0, Double.MAX_VALUE, 0.1, 5,
-                new DecimalFormat("0.##########"));
-        spinnerZeroBinAcceptExpect.setColumns(5);
-        FormEntry feZeroBinAcceptExpect = mu.feb(MsfraggerParams.PROP_zero_bin_accept_expect, spinnerZeroBinAcceptExpect)
-                .label("Zero bin accept expect").create();
-        UiSpinnerDouble spinnerZeroBinMultExpect = new UiSpinnerDouble(1, 0, 1, 0.05, 5,
-                new DecimalFormat("0.##########"));
-        spinnerZeroBinMultExpect.setColumns(5);
-        FormEntry feZeroBinMultExpect = mu.feb(MsfraggerParams.PROP_zero_bin_mult_expect, spinnerZeroBinMultExpect)
-                .label("Zero bin multiply expect").create();
-        uiComboMassDiffToVariableMod = UiUtils.createUiCombo(MASS_DIFF_TO_VAR_MOD);
-        FormEntry feComboMassDiffToVariableMod = mu.feb(MsfraggerParams.PROP_mass_diff_to_variable_mod, uiComboMassDiffToVariableMod)
-                .label("Report mass shift as a variable mod")
-                .tooltip("Places/replaces delta mass with an assigned (variable) mod.\n" +
-                        "*No*: off (default)\n" +
-                        "*Yes, keep delta mass*: Adds a variable modification, but does NOT change the delta mass\n" +
-                        "Allows differential modeling of delta masses in PeptideProphet (used for glyco quant)\n" +
-                        "Does NOT work with PTM-Shepherd\n" +
-                        "MSFragger param value 2\n" +
-                        "*Yes, remove delta mass*: Adds variable mod and changes delta mass to near 0\n" +
-                        "PeptideProphet accmass modeling only (no modeling by delta mass)\n" +
-                        "Does NOT work with PTM-Shepherd\n" +
-                        "MSFragger param value 1")
-                .create();
-
-        UiText uiTextShiftedIonsExclusion = new UiText();
-        uiTextShiftedIonsExclusion.setDocument(DocumentFilters.getFilter("[A-Za-z]"));
-        uiTextShiftedIonsExclusion.setText("(-1.5,3.5)");
-        FormEntry feShiftedIonsExclusion = mu.feb(MsfraggerParams.PROP_delta_mass_exclude_ranges,
-                        uiTextShiftedIonsExclusion).label("Delta mass exclude range")
-                .tooltip("<html>Range expressed like: (-1.5,3.5)").create();
-
-        uiCheckLocalizeDeltaMass = new UiCheck("<html>Localize mass shift (LOS)", null, false);
-        FormEntry feLocalizeDeltaMass = mu.feb(MsfraggerParams.PROP_localize_delta_mass,
-                        uiCheckLocalizeDeltaMass)
-                .tooltip("<html>Use additional shifted ion series when matching fragments.\n"
-                        + "Shifted ion series are the same as regular b/y ions,\n"
-                        + "but with the addition of the mass shift of the precursor.\n"
-                        + "Regular ion series will still be used.\n"
-                        + "This option is <b>incompatible</b> with database splitting.").create();
-
-        mu.add(p, feComboMassDiffToVariableMod.label(), mu.ccR());
-        mu.add(p, feComboMassDiffToVariableMod.comp).split().spanX().wrap();
-
-        mu.add(p, feTrackZeroTopN.label(), mu.ccR());
-        mu.add(p, feTrackZeroTopN.comp);
-        mu.add(p, feAddTopNComplementary.label(), mu.ccR());
-        mu.add(p, feAddTopNComplementary.comp).pushX().wrap();
-
-        mu.add(p, feZeroBinAcceptExpect.label(), mu.ccR());
-        mu.add(p, feZeroBinAcceptExpect.comp);
-        mu.add(p, feZeroBinMultExpect.label(), mu.ccR());
-        mu.add(p, feZeroBinMultExpect.comp).wrap();
-
-        mu.add(p, feShiftedIonsExclusion.label(), mu.ccR());
-        mu.add(p, feShiftedIonsExclusion.comp).growX().spanX().wrap();
-
-        mu.add(p, feLocalizeDeltaMass.comp).skip(1).wrap();
-
-        return p;
-    }
-
     private void postInitAddActionListeners() {
-        uiCheckLocalizeDeltaMass.addActionListener(e -> {
-            final boolean selected = uiCheckLocalizeDeltaMass.isSelected();
-            final int dbSlicing = uiSpinnerDbsplit.getActualValue();
-            if (selected && dbSlicing > 1) {
-                JOptionPane.showMessageDialog(this,
-                        "<html>This option is incompatible with DB Splitting.<br/>"
-                                + "Please either turn it off, or turn off DB Splitting by setting<br/>"
-                                + "it to 1.", "Incompatible options", JOptionPane.WARNING_MESSAGE);
-            }
-        });
-
         TabWorkflow tabWorkflow = Fragpipe.getStickyStrict(TabWorkflow.class);
         uiSpinnerDbsplit.addChangeListener(e -> {
             if (getNumDbSlices() > 1 && (tabWorkflow.hasDia() || tabWorkflow.hasGpfDia() || tabWorkflow.hasDiaLib())) {
@@ -1586,10 +1374,6 @@ public class CometPanel extends JPanelBase {
 
     public void setNumDbSlices(int v) {
         uiSpinnerDbsplit.setValue(v);
-    }
-
-    public String getMassOffsets() {
-        return uiTextMassOffsets.getNonGhostText();
     }
 
     public String getOutputFileExt() {
