@@ -36,7 +36,7 @@ import com.dmtavt.fragpipe.messages.NoteConfigDbsplit;
 import com.dmtavt.fragpipe.messages.NoteConfigMsfragger;
 import com.dmtavt.fragpipe.params.Props.Prop;
 import com.dmtavt.fragpipe.params.ThisAppProps;
-import com.dmtavt.fragpipe.tools.enums.CometCleavageType;
+import com.dmtavt.fragpipe.tools.enums.CleavageType;
 import com.dmtavt.fragpipe.tools.enums.FraggerOutputType;
 import com.dmtavt.fragpipe.tools.enums.FraggerPrecursorMassMode;
 import com.dmtavt.fragpipe.tools.enums.IntensityTransform;
@@ -213,7 +213,7 @@ public class TabMsfragger extends JPanelBase {
     CONVERT_TO_FILE.put(MsfraggerParams.PROP_calibrate_mass, s -> itos(Arrays.asList(CALIBRATE_LABELS).indexOf(s)));
     CONVERT_TO_FILE.put(MsfraggerParams.PROP_use_all_mods_in_first_search, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
     CONVERT_TO_FILE.put(MsfraggerParams.PROP_num_enzyme_termini, s -> itos(
-        CometCleavageType.valueOf(s).valueInParamsFile()));
+        CleavageType.valueOf(s).valueInParamsFile()));
     CONVERT_TO_FILE.put(MsfraggerParams.PROP_remove_precursor_peak, s -> itos(
         RemovePrecursorPeak.get(s)));
     CONVERT_TO_FILE.put(MsfraggerParams.PROP_intensity_transform, s -> itos(
@@ -242,7 +242,7 @@ public class TabMsfragger extends JPanelBase {
     CONVERT_TO_GUI.put(MsfraggerParams.PROP_precursor_true_units, s -> MassTolUnits.fromFileToUi(s).name());
     CONVERT_TO_GUI.put(MsfraggerParams.PROP_calibrate_mass, s -> CALIBRATE_LABELS[Integer.parseInt(s)]);
     CONVERT_TO_GUI.put(MsfraggerParams.PROP_use_all_mods_in_first_search, s -> Boolean.toString(Integer.parseInt(s) == 1));
-    CONVERT_TO_GUI.put(MsfraggerParams.PROP_num_enzyme_termini, s -> CometCleavageType.fromValueInParamsFile(s).name());
+    CONVERT_TO_GUI.put(MsfraggerParams.PROP_num_enzyme_termini, s -> CleavageType.fromValueInParamsFile(s).name());
     CONVERT_TO_GUI.put(MsfraggerParams.PROP_remove_precursor_peak, s -> RemovePrecursorPeak.get(Integer.parseInt(s)));
     CONVERT_TO_GUI.put(MsfraggerParams.PROP_intensity_transform, s -> IntensityTransform.get(Integer.parseInt(s)));
     CONVERT_TO_GUI.put(MsfraggerParams.PROP_check_spectral_files, s -> Boolean.toString(Integer.parseInt(s) > 0));
@@ -568,7 +568,7 @@ public class TabMsfragger extends JPanelBase {
         uiTextNocuts.setText(enzyme.nocuts);
         uiComboSense.setSelectedItem(enzyme.sense);
         if ("nonspecific".equals(item)) {
-          uiComboCleavage.setSelectedItem(CometCleavageType.NONSPECIFIC.name());
+          uiComboCleavage.setSelectedItem(CleavageType.NONSPECIFIC.name());
         } else if (uiComboCleavage.getSelectedItem() != null) {
           uiComboCleavage.setSelectedItem(uiComboCleavage.getSelectedItem().toString());
         }
@@ -602,7 +602,7 @@ public class TabMsfragger extends JPanelBase {
         uiTextNocuts2.setText(enzyme.nocuts);
         uiComboSense2.setSelectedItem(enzyme.sense);
         if ("nonspecific".equals(item)) {
-          uiComboCleavage.setSelectedItem(CometCleavageType.NONSPECIFIC.name());
+          uiComboCleavage.setSelectedItem(CleavageType.NONSPECIFIC.name());
         } else if (uiComboCleavage.getSelectedItem() != null) {
           uiComboCleavage.setSelectedItem(uiComboCleavage.getSelectedItem().toString());
         }
@@ -645,7 +645,7 @@ public class TabMsfragger extends JPanelBase {
     FormEntry feNocuts = mu.feb(MsfraggerParams.PROP_search_enzyme_nocut_1, uiTextNocuts).label("No cuts 1")
         .tooltip("Amino acids before which the enzyme won't cut.").create();
 
-    List<String> cleavageTypeNames = Arrays.stream(CometCleavageType.values()).map(Enum::name)
+    List<String> cleavageTypeNames = Arrays.stream(CleavageType.values()).map(Enum::name)
         .collect(Collectors.toList());
     uiComboCleavage = UiUtils.createUiCombo(cleavageTypeNames);
     FormEntry feCleavageType = mu.feb(MsfraggerParams.PROP_num_enzyme_termini, uiComboCleavage).label("Cleavage").create();

@@ -36,7 +36,7 @@ package com.dmtavt.fragpipe.tools.enums;
 /**
  * @author Dmitry Avtonomov
  */
-public enum CometCleavageType {
+public enum CleavageType {
   ENZYMATIC(2),
   SEMI(1),
   SEMI_N_TERM(3),
@@ -44,7 +44,7 @@ public enum CometCleavageType {
 
   private final int numEnzymeTermini;
 
-  CometCleavageType(int num_enzyme_termini) {
+  CleavageType(int num_enzyme_termini) {
     this.numEnzymeTermini = num_enzyme_termini;
   }
 
@@ -52,8 +52,8 @@ public enum CometCleavageType {
     return numEnzymeTermini;
   }
 
-  public static CometCleavageType fromValueInParamsFile(String paramsFileRepresentation) {
-    for (CometCleavageType ct : CometCleavageType.values()) {
+  public static CleavageType fromValueInParamsFile(String paramsFileRepresentation) {
+    for (CleavageType ct : CleavageType.values()) {
       if (Integer.toString(ct.valueInParamsFile()).equals(paramsFileRepresentation)) {
         return ct;
       }

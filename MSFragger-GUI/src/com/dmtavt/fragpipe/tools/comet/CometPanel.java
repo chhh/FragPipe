@@ -7,23 +7,22 @@ import com.dmtavt.fragpipe.api.ModsTable;
 import com.dmtavt.fragpipe.api.ModsTableModel;
 import com.dmtavt.fragpipe.api.SearchTypeProp;
 import com.dmtavt.fragpipe.messages.MessageCometParamsUpdate;
-import com.dmtavt.fragpipe.messages.MessageMsfraggerParamsUpdate;
 import com.dmtavt.fragpipe.messages.MessagePrecursorSelectionMode;
 import com.dmtavt.fragpipe.messages.MessageSearchType;
 import com.dmtavt.fragpipe.messages.NoteConfigComet;
-import com.dmtavt.fragpipe.messages.NoteConfigDbsplit;
 import com.dmtavt.fragpipe.messages.NoteConfigSearchEngine;
 import com.dmtavt.fragpipe.params.Props;
 import com.dmtavt.fragpipe.params.ThisAppProps;
 import com.dmtavt.fragpipe.tabs.TabComet;
 import com.dmtavt.fragpipe.tabs.TabWorkflow;
-import com.dmtavt.fragpipe.tools.enums.CometCleavageType;
+import com.dmtavt.fragpipe.tools.enums.CleavageType;
 import com.dmtavt.fragpipe.tools.enums.FraggerOutputType;
 import com.dmtavt.fragpipe.tools.enums.FraggerPrecursorMassMode;
 import com.dmtavt.fragpipe.tools.enums.RemovePrecursorPeak;
 import com.dmtavt.fragpipe.tools.fragger.Mod;
 import com.dmtavt.fragpipe.tools.fragger.MsfraggerEnzyme;
 import com.github.chhh.utils.MapUtils;
+import com.github.chhh.utils.PathUtils;
 import com.github.chhh.utils.StringUtils;
 import com.github.chhh.utils.SwingUtils;
 import com.github.chhh.utils.swing.FileChooserUtils;
@@ -82,10 +81,15 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.dmtavt.fragpipe.tabs.TabRun.LAST_WORK_DIR;
+
 //import static com.dmtavt.fragpipe.tools.fragger.MsfraggerParams.*;
 //import static com.dmtavt.fragpipe.tools.comet.CometParams.*;
 
 public class CometPanel extends JPanelBase {
+
+    public static final boolean showSimplePanel = true;
+    private JPanel pSimpleParams;
 
     private static final Logger log = LoggerFactory.getLogger(CometPanel.class);
     private final static MigUtils mu = MigUtils.get();
@@ -153,6 +157,9 @@ public class CometPanel extends JPanelBase {
     private static final String PROP_MISC_search_enzyme_sense_2 = "no-use.search_enzyme_sense_2";
     private static final String PROP_MISC_ion_series = "misc.ion_series";
 
+    private UiText uiTextPathParams;
+
+
     private static String itos(int i) {
         return Integer.toString(i);
     }
@@ -188,7 +195,7 @@ public class CometPanel extends JPanelBase {
 //        CONVERT_TO_FILE.put(CometParams.PROP_calibrate_mass, s -> itos(Arrays.asList(CALIBRATE_LABELS).indexOf(s)));
 //        CONVERT_TO_FILE.put(CometParams.PROP_use_all_mods_in_first_search, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
         CONVERT_TO_FILE.put(CometParams.PROP_num_enzyme_termini, s -> itos(
-                CometCleavageType.valueOf(s).valueInParamsFile()));
+                CleavageType.valueOf(s).valueInParamsFile()));
         CONVERT_TO_FILE.put(CometParams.PROP_remove_precursor_peak, s -> itos(
                 RemovePrecursorPeak.get(s)));
 //        CONVERT_TO_FILE.put(CometParams.PROP_intensity_transform, s -> itos(
@@ -216,7 +223,7 @@ public class CometPanel extends JPanelBase {
 //        CONVERT_TO_GUI.put(CometParams.PROP_precursor_true_units, s -> CometTolUnits.fromParamsFileToUi(s).name());
 //        CONVERT_TO_GUI.put(CometParams.PROP_calibrate_mass, s -> CALIBRATE_LABELS[Integer.parseInt(s)]);
 //        CONVERT_TO_GUI.put(CometParams.PROP_use_all_mods_in_first_search, s -> Boolean.toString(Integer.parseInt(s) == 1));
-        CONVERT_TO_GUI.put(CometParams.PROP_num_enzyme_termini, s -> CometCleavageType.fromValueInParamsFile(s).name());
+        CONVERT_TO_GUI.put(CometParams.PROP_num_enzyme_termini, s -> CleavageType.fromValueInParamsFile(s).name());
         CONVERT_TO_GUI.put(CometParams.PROP_remove_precursor_peak, s -> RemovePrecursorPeak.get(Integer.parseInt(s)));
 //        CONVERT_TO_GUI.put(CometParams.PROP_intensity_transform, s -> IntensityTransform.get(Integer.parseInt(s)));
 //        CONVERT_TO_GUI.put(CometParams.PROP_localize_delta_mass, s -> Boolean.toString(Integer.parseInt(s) > 0));
@@ -248,7 +255,6 @@ public class CometPanel extends JPanelBase {
     private ModsTable tableVarMods;
     private ModsTable tableFixMods;
     public UiCombo uiComboOutputType;
-    private UiSpinnerInt uiSpinnerDbsplit;
     private Map<Component, Boolean> enablementMapping = new HashMap<>();
 
     private UiCombo uiComboEnzymes;
@@ -315,15 +321,15 @@ public class CometPanel extends JPanelBase {
     @Override
     protected void initMore() {
         postInitAddActionListeners();
-
         updateEnabledStatus(this, false); // will get enabled once we receive NoteConfigMsfragger
-        updateEnabledStatus(uiSpinnerDbsplit, false); // only gets enabled when DbSlice2 is initialized
 
         super.initMore();
 
-        // init fields with default values, called after initMore() which causes field renaming to happen
-        log.debug("Calling TabComet loadDefaults(SearchTypeProp.closed, false) in initMore()");
-        loadDefaults(SearchTypeProp.closed, false);
+        if (!showSimplePanel) {
+            // init fields with default values, called after initMore() which causes field renaming to happen
+            log.debug("Calling TabComet loadDefaults(SearchTypeProp.closed, false) in initMore()");
+            loadDefaults(SearchTypeProp.closed, false);
+        }
 
         // try scrolling up
         addHierarchyListener(new HierarchyListener() {
@@ -357,15 +363,20 @@ public class CometPanel extends JPanelBase {
 
         pTop = createPanelTop();
         pContent = createPanelContent();
-        pBasic = createPanelBasicOptions();
-        pMods = createPanelMods();
-        pAdvanced = createPanelAdvancedOptions();
 
         mu.add(this, pTop).growX().wrap();
         mu.add(this, pContent).growX().wrap();
-        mu.add(pContent, pBasic).growX().wrap();
-        mu.add(pContent, pMods).growX().wrap();
-        mu.add(pContent, pAdvanced).growX().wrap();
+        if (showSimplePanel) {
+            pSimpleParams = createPanelSimpleParams();
+            mu.add(pContent, pSimpleParams).growX().wrap();
+        } else {
+            pBasic = createPanelBasicOptions();
+            pMods = createPanelMods();
+            pAdvanced = createPanelAdvancedOptions();
+            mu.add(pContent, pBasic).growX().wrap();
+            mu.add(pContent, pMods).growX().wrap();
+            mu.add(pContent, pAdvanced).growX().wrap();
+        }
     }
 
     /**
@@ -391,11 +402,15 @@ public class CometPanel extends JPanelBase {
         JButton btnLoad = new JButton("Load");
         btnLoad.addActionListener(this::actionBtnConfigLoad);
 
+
+
+
+
         mu.add(pTop, checkRun).wrap();
-        mu.add(pTop, btnSave).split().spanX();
-        mu.add(pTop, btnLoad);
-        mu.add(pTop, new JLabel(":")).gapLeft("3px").gapRight("3px");
-        mu.add(pTop, uiComboLoadDefaultsNames).wrap();
+//        mu.add(pTop, btnSave).split().spanX();
+//        mu.add(pTop, btnLoad);
+//        mu.add(pTop, new JLabel(":")).gapLeft("3px").gapRight("3px");
+//        mu.add(pTop, uiComboLoadDefaultsNames).wrap();
 
         return pTop;
     }
@@ -404,6 +419,49 @@ public class CometPanel extends JPanelBase {
         pContent = new JPanel();
         pContent.setLayout(new MigLayout(new LC().fillX()));
         return pContent;
+    }
+
+
+    private JPanel createPanelSimpleParams() {
+        uiTextPathParams = UiUtils.uiTextBuilder().cols(30).create();
+        FormEntry feWorkdir = mu.feb("workdir", uiTextPathParams)
+                .label("Path to .params")
+                .tooltip("<html>See examples at:\n" +
+                        "https://uwpr.github.io/Comet/parameters/parameters_202102/\n" +
+                        "Or start Comet executable with `-p` parameter to create a default one")
+                .create();
+        final String btnText = "Select .params";
+        JButton btnBrowse = feWorkdir.browseButton(() -> FileChooserUtils.builder(btnText)
+                .mode(FileChooserUtils.FcMode.FILES_ONLY)
+                .multi(false)
+                .paths(Stream.of(uiTextPathParams.getNonGhostText(), Fragpipe.propsVar().getProperty(LAST_WORK_DIR))).create(), btnText,
+                selected -> uiTextPathParams.setText(selected.get(0).toString()));
+        JButton btnOpenInFileManager = UiUtils.createButton("Open in File Manager", e -> {
+            final String text = uiTextPathParams.getNonGhostText();
+            if (StringUtils.isBlank(text)) {
+                SwingUtils.showInfoDialog(CometPanel.this, "Empty path", "Does not exist");
+                return;
+            }
+            Path existing = PathUtils.existing(text);
+            if (existing == null) {
+                SwingUtils.showInfoDialog(CometPanel.this, "Path:\n'" + text + "'\nDoes not exist", "Does not exist");
+                return;
+            }
+            try {
+                Desktop.getDesktop().open(existing.toFile());
+            } catch (IOException ex) {
+                SwingUtils.showErrorDialog(CometPanel.this, "Could not open path in system file browser.", "Error");
+                return;
+            }
+        });
+
+
+        JPanel p = mu.newPanel("Params file", true);
+        mu.add(p, feWorkdir.label(), false).split().spanX();
+        mu.add(p, feWorkdir.comp).growX();
+        mu.add(p, btnBrowse);
+        mu.add(p, btnOpenInFileManager).wrap();
+        return p;
     }
 
     private JPanel createPanelBasicPeakMatch() {
@@ -537,7 +595,7 @@ public class CometPanel extends JPanelBase {
                 uiTextNocuts.setText(enzyme.nocuts);
                 uiComboSense.setSelectedItem(enzyme.sense);
                 if ("nonspecific".equals(item)) {
-                    uiComboCleavage.setSelectedItem(CometCleavageType.NONSPECIFIC.name());
+                    uiComboCleavage.setSelectedItem(CleavageType.NONSPECIFIC.name());
                 } else if (uiComboCleavage.getSelectedItem() != null) {
                     uiComboCleavage.setSelectedItem(uiComboCleavage.getSelectedItem().toString());
                 }
@@ -571,7 +629,7 @@ public class CometPanel extends JPanelBase {
                 uiTextNocuts2.setText(enzyme.nocuts);
                 uiComboSense2.setSelectedItem(enzyme.sense);
                 if ("nonspecific".equals(item)) {
-                    uiComboCleavage.setSelectedItem(CometCleavageType.NONSPECIFIC.name());
+                    uiComboCleavage.setSelectedItem(CleavageType.NONSPECIFIC.name());
                 } else if (uiComboCleavage.getSelectedItem() != null) {
                     uiComboCleavage.setSelectedItem(uiComboCleavage.getSelectedItem().toString());
                 }
@@ -604,7 +662,7 @@ public class CometPanel extends JPanelBase {
         };
 
 //        CleavageType[] cleavageTypes = new CleavageType[] {CleavageType.ENZYMATIC};
-        final CometCleavageType[] cleavageTypes = CometCleavageType.values();
+        final CleavageType[] cleavageTypes = CleavageType.values();
         java.util.List<String> cleavageTypeNames = Arrays.stream(cleavageTypes).map(Enum::name)
                 .collect(Collectors.toList());
         uiComboCleavage = UiUtils.createUiCombo(cleavageTypeNames);
@@ -659,11 +717,6 @@ public class CometPanel extends JPanelBase {
         uiSpinnerDigestMassHi.setColumns(6);
         FormEntry fePepMassHi = mu.feb(PROP_misc_comet_digest_mass_hi, uiSpinnerDigestMassHi).create();
 
-        uiSpinnerDbsplit = new UiSpinnerInt(1, 1, 9999, 1, 2);
-        FormEntry feDbsplit = mu.feb(PROP_misc_slice_db, uiSpinnerDbsplit).label("<html>Split database")
-                .tooltip("<html>Split database into smaller chunks.\n"
-                        + "Only use for very large databases (200MB+) or<br/>non-specific digestion.").create();
-
 
         mu.add(p, feCleavageType.label(), mu.ccL()).span(2).split(13);
         mu.add(p, feCleavageType.comp).minWidth("100px");
@@ -707,9 +760,6 @@ public class CometPanel extends JPanelBase {
         mu.add(p, fePepMassLo.comp).split(3);
         mu.add(p, new JLabel("-"));
         mu.add(p, fePepMassHi.comp);
-
-        mu.add(p, feDbsplit.label()).gapLeft("10px").split(2);
-        mu.add(p, feDbsplit.comp).pushX().wrap();
 
         return p;
     }
@@ -1039,12 +1089,6 @@ public class CometPanel extends JPanelBase {
 
     private void postInitAddActionListeners() {
         TabWorkflow tabWorkflow = Fragpipe.getStickyStrict(TabWorkflow.class);
-        uiSpinnerDbsplit.addChangeListener(e -> {
-            if (getNumDbSlices() > 1 && (tabWorkflow.hasDia() || tabWorkflow.hasGpfDia() || tabWorkflow.hasDiaLib())) {
-                JOptionPane.showMessageDialog(this, "<html><code>Split database</code> is incompatible with DIA, GPF-DIA, or DIA-Lib data types.<br/>Set <code>split database</code> to 1.<br/>", "Incompatible options", JOptionPane.WARNING_MESSAGE);
-                uiSpinnerDbsplit.setValue(1);
-            }
-        });
     }
 
     private void setJTableColSize(JTable table, int colIndex, int minW, int maxW, int prefW) {
@@ -1250,19 +1294,6 @@ public class CometPanel extends JPanelBase {
         updateEnabledStatus(this, m.isValid());
     }
 
-    @Subscribe(sticky = true, threadMode = ThreadMode.MAIN_ORDERED)
-    public void on(NoteConfigDbsplit m) {
-        log.debug("Got NoteConfigDbsplit. Setting MSFragger tab DB Split option to enabled={}", m.isValid());
-        updateEnabledStatus(uiSpinnerDbsplit, m.isValid());
-    }
-
-//    @Subscribe
-//    public void on(MessageValidityMassCalibration msg) {
-//        log.debug("Got message 'MessageValidityMassCalibration' reading isValid = {} ", msg.isValid);
-//        enablementMapping.put(uiComboMassCalibrate, msg.isValid);
-//        updateEnabledStatus(uiComboMassCalibrate, msg.isValid);
-//    }
-
     @Subscribe
     public void on(MessagePrecursorSelectionMode m) {
         log.debug("Received MessagePrecursorSelectionMode [{}]. Doing nothing.", m.mode.name());
@@ -1289,14 +1320,6 @@ public class CometPanel extends JPanelBase {
 
     public void setWriteCalMgf(boolean selected) {
         uiCheckWriteCalibratedMgf.setSelected(selected);
-    }
-
-    public int getNumDbSlices() {
-        return uiSpinnerDbsplit.getActualValue();
-    }
-
-    public void setNumDbSlices(int v) {
-        uiSpinnerDbsplit.setValue(v);
     }
 
     public String getOutputFileExt() {
@@ -1404,7 +1427,6 @@ public class CometPanel extends JPanelBase {
         formFrom(params);
 
         // reset some fields that are not part of Fragger config file
-        uiSpinnerDbsplit.setValue(1);
     }
 
     /**

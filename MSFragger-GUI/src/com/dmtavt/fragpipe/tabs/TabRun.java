@@ -83,7 +83,7 @@ public class TabRun extends JPanelWithEnablement {
   private static final Logger log = LoggerFactory.getLogger(TabRun.class);
   public static final MigUtils mu = MigUtils.get();
   public static final String TAB_PREFIX = "tab-run.";
-  private static final String LAST_WORK_DIR = "workdir.last-path";
+  public static final String LAST_WORK_DIR = "workdir.last-path";
   private static final String PROP_FILECHOOSER_LAST_PATH = TAB_PREFIX + "filechooser.last-path";
   final TextConsole console;
   Color defTextColor;

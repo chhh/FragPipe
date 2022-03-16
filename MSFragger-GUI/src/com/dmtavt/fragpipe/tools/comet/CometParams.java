@@ -22,7 +22,6 @@ import com.dmtavt.fragpipe.params.PropLine;
 import com.dmtavt.fragpipe.params.PropertyFileContent;
 import com.dmtavt.fragpipe.params.Props;
 import com.dmtavt.fragpipe.tools.fragger.Mod;
-import com.dmtavt.fragpipe.tools.fragger.MsfraggerParams;
 import com.github.chhh.utils.StringUtils;
 import com.github.chhh.utils.SwingUtils;
 import org.slf4j.Logger;
