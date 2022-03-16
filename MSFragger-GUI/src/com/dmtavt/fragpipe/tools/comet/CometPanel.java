@@ -16,14 +16,12 @@ import com.dmtavt.fragpipe.params.Props;
 import com.dmtavt.fragpipe.params.ThisAppProps;
 import com.dmtavt.fragpipe.tabs.TabComet;
 import com.dmtavt.fragpipe.tabs.TabWorkflow;
-import com.dmtavt.fragpipe.tools.enums.CleavageType;
+import com.dmtavt.fragpipe.tools.enums.CometCleavageType;
 import com.dmtavt.fragpipe.tools.enums.FraggerOutputType;
 import com.dmtavt.fragpipe.tools.enums.FraggerPrecursorMassMode;
-import com.dmtavt.fragpipe.tools.enums.IntensityTransform;
 import com.dmtavt.fragpipe.tools.enums.RemovePrecursorPeak;
 import com.dmtavt.fragpipe.tools.fragger.Mod;
 import com.dmtavt.fragpipe.tools.fragger.MsfraggerEnzyme;
-import com.dmtavt.fragpipe.tools.fragger.MsfraggerParams;
 import com.github.chhh.utils.MapUtils;
 import com.github.chhh.utils.StringUtils;
 import com.github.chhh.utils.SwingUtils;
@@ -43,7 +41,6 @@ import com.github.chhh.utils.swing.renderers.TableCellIntSpinnerEditor;
 import net.miginfocom.layout.CC;
 import net.miginfocom.layout.LC;
 import net.miginfocom.swing.MigLayout;
-import org.apache.commons.lang3.ArrayUtils;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 import org.jooq.lambda.Seq;
@@ -84,7 +81,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.dmtavt.fragpipe.tools.fragger.MsfraggerParams.*;
+//import static com.dmtavt.fragpipe.tools.fragger.MsfraggerParams.*;
+//import static com.dmtavt.fragpipe.tools.comet.CometParams.*;
 
 public class CometPanel extends JPanelBase {
 
@@ -105,14 +103,14 @@ public class CometPanel extends JPanelBase {
     private static final String PROP_misc_adjust_precurosr_mass = "misc.adjust-precursor-mass";
     private static final String PROP_misc_slice_db = "misc.slice-db";
     private static final String PROP_misc_ram = "misc.ram";
-    private static final String PROP_misc_comet_remove_precursor_range_lo = "misc.comet.remove-precursor-range-lo";
-    private static final String PROP_misc_comet_remove_precursor_range_hi = "misc.comet.remove-precursor-range-hi";
+    private static final String PROP_MISC_comet_remove_precursor_range_lo = "misc.comet.remove-precursor-range-lo";
+    private static final String PROP_MISC_comet_remove_precursor_range_hi = "misc.comet.remove-precursor-range-hi";
     private static final String PROP_misc_comet_digest_mass_lo = "misc.comet.digest-mass-lo";
     private static final String PROP_misc_comet_digest_mass_hi = "misc.comet.digest-mass-hi";
-    private static final String PROP_misc_comet_clear_mz_lo = "misc.comet.clear-mz-lo";
-    private static final String PROP_misc_comet_clear_mz_hi = "misc.comet.clear-mz-hi";
-    private static final String PROP_misc_comet_precursor_charge_lo = "misc.comet.precursor-charge-lo";
-    private static final String PROP_misc_comet_precursor_charge_hi = "misc.comet.precursor-charge-hi";
+    private static final String PROP_MISC_comet_clear_mz_lo = "misc.comet.clear-mz-lo";
+    private static final String PROP_MISC_comet_clear_mz_hi = "misc.comet.clear-mz-hi";
+    private static final String PROP_MISC_comet_precursor_charge_lo = "misc.comet.precursor-charge-lo";
+    private static final String PROP_MISC_comet_precursor_charge_hi = "misc.comet.precursor-charge-hi";
     public static final String PROP_misc_comet_enzyme_dropdown_1 = "misc.comet.enzyme-dropdown-1";
     public static final String PROP_misc_comet_enzyme_dropdown_2 = "misc.comet.enzyme-dropdown-2";
     private static final Set<String> PROPS_MISC_NAMES;
@@ -123,8 +121,6 @@ public class CometPanel extends JPanelBase {
     private static final String[] MASS_DIFF_TO_VAR_MOD = {"No", "Yes, keep delta mass", "Yes, remove delta mass"};
     private static final String[] DEISOTOPE = {"No", "Yes", "Yes, use charge 1 and 2 for undeisotoped peaks"};
     private static final int[] MASS_DIFF_TO_VAR_MOD_MAP = {0, 2, 1};
-    private static final java.util.List<String> GLYCO_OPTIONS_UI = Arrays
-            .asList(GLYCO_OPTION_off, GLYCO_OPTION_nglycan, GLYCO_OPTION_labile);
     private static final String LOAD_CUSTOM_CONFIG_OPTION = "Custom Comet parameter file from disk";
 
     private static final java.util.List<MsfraggerEnzyme> ENZYMES = new CometEnzymeProvider().get();
@@ -135,17 +131,26 @@ public class CometPanel extends JPanelBase {
             PROP_misc_ram,
             PROP_misc_comet_digest_mass_lo,
             PROP_misc_comet_digest_mass_hi,
-            PROP_misc_comet_remove_precursor_range_lo,
-            PROP_misc_comet_remove_precursor_range_hi,
-            PROP_misc_comet_clear_mz_lo,
-            PROP_misc_comet_clear_mz_hi,
-            PROP_misc_comet_precursor_charge_lo,
-            PROP_misc_comet_precursor_charge_hi,
+            PROP_MISC_comet_remove_precursor_range_lo,
+            PROP_MISC_comet_remove_precursor_range_hi,
+            PROP_MISC_comet_clear_mz_lo,
+            PROP_MISC_comet_clear_mz_hi,
+            PROP_MISC_comet_precursor_charge_lo,
+            PROP_MISC_comet_precursor_charge_hi,
     };
 
     UiCombo uiComboMassDiffToVariableMod;
     UiCombo uiComboIsoErrors;
     private UiSpinnerDouble uiSpinnerFragBinOffset;
+    private static final String PROP_MISC_digest_length_lo = "misc.digest_length_lo";
+    private static final String PROP_MISC_digest_length_hi = "misc.digest_length_hi";
+    private static final String PROP_MISC_search_enzyme_cut_1 = "no-use.search_enzyme_cut_1";
+    private static final String PROP_MISC_search_enzyme_nocut_1 = "no-use.search_enzyme_nocut_1";
+    private static final String PROP_MISC_search_enzyme_sense_1 = "no-use.search_enzyme_sense_1";
+    private static final String PROP_MISC_search_enzyme_cut_2 = "no-use.search_enzyme_cut_2";
+    private static final String PROP_MISC_search_enzyme_nocut_2 = "no-use.search_enzyme_nocut_2";
+    private static final String PROP_MISC_search_enzyme_sense_2 = "no-use.search_enzyme_sense_2";
+    private static final String PROP_MISC_ion_series = "misc.ion_series";
 
     private static String itos(int i) {
         return Integer.toString(i);
@@ -160,71 +165,71 @@ public class CometPanel extends JPanelBase {
         CONVERT_TO_FILE = new HashMap<>();
         CONVERT_TO_GUI = new HashMap<>();
 
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_write_calibrated_mgf, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_mass_diff_to_variable_mod, s -> itos(
-                MASS_DIFF_TO_VAR_MOD_MAP[ArrayUtils.indexOf(MASS_DIFF_TO_VAR_MOD, s)]));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_deisotope, s -> {
-            for (int i = 0; i < DEISOTOPE.length; ++i) {
-                if (s.equalsIgnoreCase(DEISOTOPE[i])) {
-                    return itos(i);
-                }
-            }
-            return "1";
-        });
+//        CONVERT_TO_FILE.put(CometParams.PROP_write_calibrated_mgf, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
+//        CONVERT_TO_FILE.put(CometParams.PROP_mass_diff_to_variable_mod, s -> itos(
+//                MASS_DIFF_TO_VAR_MOD_MAP[ArrayUtils.indexOf(MASS_DIFF_TO_VAR_MOD, s)]));
+//        CONVERT_TO_FILE.put(CometParams.PROP_deisotope, s -> {
+//            for (int i = 0; i < DEISOTOPE.length; ++i) {
+//                if (s.equalsIgnoreCase(DEISOTOPE[i])) {
+//                    return itos(i);
+//                }
+//            }
+//            return "1";
+//        });
 
 
         CONVERT_TO_FILE.put(CometParams.PROP_peptide_mass_tolerance, s -> itos(CometTolUnits.valueOf(s).valueInParamsFile()));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_fragment_mass_units, s -> itos(CometTolUnits.valueOf(s).valueInParamsFile()));
+//        CONVERT_TO_FILE.put(CometParams.PROP_fragment_mass_units, s -> itos(CometTolUnits.valueOf(s).valueInParamsFile()));
 
 
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_precursor_true_units, s -> itos(
-                CometTolUnits.valueOf(s).valueInParamsFile()));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_calibrate_mass, s -> itos(Arrays.asList(CALIBRATE_LABELS).indexOf(s)));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_use_all_mods_in_first_search, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_num_enzyme_termini, s -> itos(
-                CleavageType.valueOf(s).valueInParamsFile()));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_remove_precursor_peak, s -> itos(
+//        CONVERT_TO_FILE.put(CometParams.PROP_precursor_true_units, s -> itos(
+//                CometTolUnits.valueOf(s).valueInParamsFile()));
+//        CONVERT_TO_FILE.put(CometParams.PROP_calibrate_mass, s -> itos(Arrays.asList(CALIBRATE_LABELS).indexOf(s)));
+//        CONVERT_TO_FILE.put(CometParams.PROP_use_all_mods_in_first_search, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
+        CONVERT_TO_FILE.put(CometParams.PROP_num_enzyme_termini, s -> itos(
+                CometCleavageType.valueOf(s).valueInParamsFile()));
+        CONVERT_TO_FILE.put(CometParams.PROP_remove_precursor_peak, s -> itos(
                 RemovePrecursorPeak.get(s)));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_intensity_transform, s -> itos(
-                IntensityTransform.get(s)));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_localize_delta_mass, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_clip_nTerm_M, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_override_charge, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_output_format, s -> FraggerOutputType.valueOf(s).valueInParamsFile());
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_report_alternative_proteins, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_fragment_ion_series, ionStr -> ionStr.trim().replaceAll("[\\s,;]+", ","));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_ion_series_definitions, defStr -> defStr.trim().replaceAll("\\s*[,;]+\\s*", ", "));
+//        CONVERT_TO_FILE.put(CometParams.PROP_intensity_transform, s -> itos(
+//                IntensityTransform.get(s)));
+//        CONVERT_TO_FILE.put(CometParams.PROP_localize_delta_mass, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
+//        CONVERT_TO_FILE.put(CometParams.PROP_clip_nTerm_M, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
+        CONVERT_TO_FILE.put(CometParams.PROP_override_charge, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
+//        CONVERT_TO_FILE.put(CometParams.PROP_output_format, s -> FraggerOutputType.valueOf(s).valueInParamsFile());
+//        CONVERT_TO_FILE.put(CometParams.PROP_report_alternative_proteins, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
+//        CONVERT_TO_FILE.put(CometParams.PROP_fragment_ion_series, ionStr -> ionStr.trim().replaceAll("[\\s,;]+", ","));
+//        CONVERT_TO_FILE.put(CometParams.PROP_ion_series_definitions, defStr -> defStr.trim().replaceAll("\\s*[,;]+\\s*", ", "));
+//
+//        CONVERT_TO_FILE.put(CometParams.PROP_labile_search_mode, s -> GLYCO_OPTIONS.get(GLYCO_OPTIONS_UI.indexOf(s)));
+        CONVERT_TO_FILE.put(CometParams.PROP_mass_offsets, s -> s.replaceAll("[\\s]+", "/"));
+//        CONVERT_TO_FILE.put(CometParams.PROP_Y_type_masses, s -> s.replaceAll("[\\s]+", "/"));
+//        CONVERT_TO_FILE.put(CometParams.PROP_diagnostic_fragments, s -> s.replaceAll("[\\s]+", "/"));
+//        CONVERT_TO_FILE.put(CometParams.PROP_remainder_masses, s -> s.replaceAll("[\\s]+", "/"));
+//        CONVERT_TO_FILE.put(CometParams.PROP_deneutralloss, s -> s.toLowerCase().contentEquals("yes") ? "1" : "0");
+//
+//        CONVERT_TO_GUI.put(CometParams.PROP_write_calibrated_mgf, s -> Boolean.toString(Integer.parseInt(s) > 0));
+//        CONVERT_TO_GUI.put(CometParams.PROP_mass_diff_to_variable_mod, s -> MASS_DIFF_TO_VAR_MOD[MASS_DIFF_TO_VAR_MOD_MAP[Integer.parseInt(s)]]);
+//        CONVERT_TO_GUI.put(CometParams.PROP_deisotope, s -> DEISOTOPE[Integer.parseInt(s)]);
+//        CONVERT_TO_GUI.put(CometParams.PROP_precursor_mass_units, s -> CometTolUnits.fromParamsFileToUi(s).name());
+//        CONVERT_TO_GUI.put(CometParams.PROP_fragment_mass_units, s -> CometTolUnits.fromParamsFileToUi(s).name());
+//        CONVERT_TO_GUI.put(CometParams.PROP_precursor_true_units, s -> CometTolUnits.fromParamsFileToUi(s).name());
+//        CONVERT_TO_GUI.put(CometParams.PROP_calibrate_mass, s -> CALIBRATE_LABELS[Integer.parseInt(s)]);
+//        CONVERT_TO_GUI.put(CometParams.PROP_use_all_mods_in_first_search, s -> Boolean.toString(Integer.parseInt(s) == 1));
+        CONVERT_TO_GUI.put(CometParams.PROP_num_enzyme_termini, s -> CometCleavageType.fromValueInParamsFile(s).name());
+        CONVERT_TO_GUI.put(CometParams.PROP_remove_precursor_peak, s -> RemovePrecursorPeak.get(Integer.parseInt(s)));
+//        CONVERT_TO_GUI.put(CometParams.PROP_intensity_transform, s -> IntensityTransform.get(Integer.parseInt(s)));
+//        CONVERT_TO_GUI.put(CometParams.PROP_localize_delta_mass, s -> Boolean.toString(Integer.parseInt(s) > 0));
+//        CONVERT_TO_GUI.put(CometParams.PROP_clip_nTerm_M, s -> Boolean.toString(Integer.parseInt(s) > 0));
+        CONVERT_TO_GUI.put(CometParams.PROP_override_charge, s -> Boolean.toString(Integer.parseInt(s) > 0));
+//        CONVERT_TO_GUI.put(CometParams.PROP_output_format, s -> FraggerOutputType.fromValueInParamsFile(s).name());
+//        CONVERT_TO_GUI.put(CometParams.PROP_report_alternative_proteins, s -> Boolean.toString(Integer.parseInt(s) > 0));
 
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_labile_search_mode, s -> GLYCO_OPTIONS.get(GLYCO_OPTIONS_UI.indexOf(s)));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_mass_offsets, s -> s.replaceAll("[\\s]+", "/"));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_Y_type_masses, s -> s.replaceAll("[\\s]+", "/"));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_diagnostic_fragments, s -> s.replaceAll("[\\s]+", "/"));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_remainder_masses, s -> s.replaceAll("[\\s]+", "/"));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_deneutralloss, s -> s.toLowerCase().contentEquals("yes") ? "1" : "0");
-
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_write_calibrated_mgf, s -> Boolean.toString(Integer.parseInt(s) > 0));
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_mass_diff_to_variable_mod, s -> MASS_DIFF_TO_VAR_MOD[MASS_DIFF_TO_VAR_MOD_MAP[Integer.parseInt(s)]]);
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_deisotope, s -> DEISOTOPE[Integer.parseInt(s)]);
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_precursor_mass_units, s -> CometTolUnits.fromParamsFileToUi(s).name());
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_fragment_mass_units, s -> CometTolUnits.fromParamsFileToUi(s).name());
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_precursor_true_units, s -> CometTolUnits.fromParamsFileToUi(s).name());
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_calibrate_mass, s -> CALIBRATE_LABELS[Integer.parseInt(s)]);
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_use_all_mods_in_first_search, s -> Boolean.toString(Integer.parseInt(s) == 1));
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_num_enzyme_termini, s -> CleavageType.fromValueInParamsFile(s).name());
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_remove_precursor_peak, s -> RemovePrecursorPeak.get(Integer.parseInt(s)));
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_intensity_transform, s -> IntensityTransform.get(Integer.parseInt(s)));
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_localize_delta_mass, s -> Boolean.toString(Integer.parseInt(s) > 0));
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_clip_nTerm_M, s -> Boolean.toString(Integer.parseInt(s) > 0));
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_override_charge, s -> Boolean.toString(Integer.parseInt(s) > 0));
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_output_format, s -> FraggerOutputType.fromValueInParamsFile(s).name());
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_report_alternative_proteins, s -> Boolean.toString(Integer.parseInt(s) > 0));
-
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_labile_search_mode, s -> GLYCO_OPTIONS_UI.get(GLYCO_OPTIONS.indexOf(s)));
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_mass_offsets, text -> String.join(" ", text.split("/")));
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_Y_type_masses, text -> String.join(" ", text.split("/")));
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_diagnostic_fragments, text -> String.join(" ", text.split("/")));
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_remainder_masses, text -> String.join(" ", text.split("/")));
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_deneutralloss, s -> Integer.parseInt(s) == 1 ? "Yes" : "No");
+//        CONVERT_TO_GUI.put(CometParams.PROP_labile_search_mode, s -> GLYCO_OPTIONS_UI.get(GLYCO_OPTIONS.indexOf(s)));
+        CONVERT_TO_GUI.put(CometParams.PROP_mass_offsets, text -> String.join(" ", text.split("/")));
+//        CONVERT_TO_GUI.put(CometParams.PROP_Y_type_masses, text -> String.join(" ", text.split("/")));
+//        CONVERT_TO_GUI.put(CometParams.PROP_diagnostic_fragments, text -> String.join(" ", text.split("/")));
+//        CONVERT_TO_GUI.put(CometParams.PROP_remainder_masses, text -> String.join(" ", text.split("/")));
+//        CONVERT_TO_GUI.put(CometParams.PROP_deneutralloss, s -> Integer.parseInt(s) == 1 ? "Yes" : "No");
 
         SEARCH_TYPE_NAME_MAPPING = new LinkedHashMap<>();
         SEARCH_TYPE_NAME_MAPPING.put("Closed Search default config", SearchTypeProp.closed);
@@ -241,12 +246,8 @@ public class CometPanel extends JPanelBase {
     private JPanel pContent;
     private ModsTable tableVarMods;
     private ModsTable tableFixMods;
-//    private UiCombo uiComboMassCalibrate;
     public UiCombo uiComboOutputType;
-    private UiCombo uiComboMassMode;
     private UiSpinnerInt uiSpinnerDbsplit;
-    private UiText uiTextCustomIonSeries;
-    private JLabel labelCustomIonSeries;
     private Map<Component, Boolean> enablementMapping = new HashMap<>();
 
     private UiCombo uiComboEnzymes;
@@ -316,11 +317,6 @@ public class CometPanel extends JPanelBase {
 
         updateEnabledStatus(this, false); // will get enabled once we receive NoteConfigMsfragger
         updateEnabledStatus(uiSpinnerDbsplit, false); // only gets enabled when DbSlice2 is initialized
-
-        // TODO: ACHTUNG: temporary fix, disabling "Define custom ion series field"
-        // Remove when custom ion series work properly in msfragger
-        updateEnabledStatus(uiTextCustomIonSeries, true);
-        updateEnabledStatus(labelCustomIonSeries, true);
 
         super.initMore();
 
@@ -485,7 +481,7 @@ public class CometPanel extends JPanelBase {
                         "Set this parameter to 1 to specify that the mass tolerance is applied to the precursor m/z.")
                 .create();
 
-        FormEntry feIsotopeError = mu.feb(MsfraggerParams.PROP_isotope_error, uiComboIsoErrors)
+        FormEntry feIsotopeError = mu.feb(CometParams.PROP_isotope_error, uiComboIsoErrors)
                 .label("Isotope error")
                 .tooltip("<html>String of the form 0/1/2/3 indicating which isotopic\n"
                         + "peak selection errors MSFragger will try to correct.")
@@ -540,7 +536,7 @@ public class CometPanel extends JPanelBase {
                 uiTextNocuts.setText(enzyme.nocuts);
                 uiComboSense.setSelectedItem(enzyme.sense);
                 if ("nonspecific".equals(item)) {
-                    uiComboCleavage.setSelectedItem(CleavageType.NONSPECIFIC.name());
+                    uiComboCleavage.setSelectedItem(CometCleavageType.NONSPECIFIC.name());
                 } else if (uiComboCleavage.getSelectedItem() != null) {
                     uiComboCleavage.setSelectedItem(uiComboCleavage.getSelectedItem().toString());
                 }
@@ -574,7 +570,7 @@ public class CometPanel extends JPanelBase {
                 uiTextNocuts2.setText(enzyme.nocuts);
                 uiComboSense2.setSelectedItem(enzyme.sense);
                 if ("nonspecific".equals(item)) {
-                    uiComboCleavage.setSelectedItem(CleavageType.NONSPECIFIC.name());
+                    uiComboCleavage.setSelectedItem(CometCleavageType.NONSPECIFIC.name());
                 } else if (uiComboCleavage.getSelectedItem() != null) {
                     uiComboCleavage.setSelectedItem(uiComboCleavage.getSelectedItem().toString());
                 }
@@ -606,52 +602,52 @@ public class CometPanel extends JPanelBase {
             }
         };
 
-        uiTextEnzymeName = new UiText();
-        FormEntry feEnzymeName = mu.feb(MsfraggerParams.PROP_search_enzyme_name_1, uiTextEnzymeName).label("Enzyme name 1").create();
-        uiTextCuts = UiUtils.uiTextBuilder().cols(6).filter("[^A-Z-]").text("KR").create();
-        uiTextCuts.addFocusListener(enzymeSpecFocusListener);
-        FormEntry feCuts = mu.feb(MsfraggerParams.PROP_search_enzyme_cut_1, uiTextCuts).label("Cuts 1")
-                .tooltip("Capital letters for amino acids after which the enzyme cuts.").create();
-        uiTextNocuts = UiUtils.uiTextBuilder().cols(3).filter("[^A-Z-]").text("P").create();
-        uiTextNocuts.addFocusListener(enzymeSpecFocusListener);
-        FormEntry feNocuts = mu.feb(MsfraggerParams.PROP_search_enzyme_nocut_1, uiTextNocuts).label("No cuts 1")
-                .tooltip("Amino acids before which the enzyme won't cut.").create();
-
-        java.util.List<String> cleavageTypeNames = Arrays.stream(CleavageType.values()).map(Enum::name)
+//        CleavageType[] cleavageTypes = new CleavageType[] {CleavageType.ENZYMATIC};
+        final CometCleavageType[] cleavageTypes = CometCleavageType.values();
+        java.util.List<String> cleavageTypeNames = Arrays.stream(cleavageTypes).map(Enum::name)
                 .collect(Collectors.toList());
         uiComboCleavage = UiUtils.createUiCombo(cleavageTypeNames);
-        FormEntry feCleavageType = mu.feb(MsfraggerParams.PROP_num_enzyme_termini, uiComboCleavage).label("Cleavage").create();
-        UiSpinnerInt uiSpinnerMissedCleavages = new UiSpinnerInt(2, 0, 1000, 1);
-        uiSpinnerMissedCleavages.setColumns(2);
-        FormEntry feMissedCleavages = mu.feb(MsfraggerParams.PROP_allowed_missed_cleavage_1, uiSpinnerMissedCleavages).label("Missed cleavages 1").create();
-        uiComboSense = UiUtils.createUiCombo(new String[]{"N", "C"});
-        FormEntry feSense = mu.feb(MsfraggerParams.PROP_search_enzyme_sense_1, uiComboSense).label("Sense 1").create();
-
-        uiTextEnzymeName2 = new UiText();
-        FormEntry feEnzymeName2 = mu.feb(MsfraggerParams.PROP_search_enzyme_name_2, uiTextEnzymeName2).label("Enzyme name 2").create();
-        uiTextCuts2 = UiUtils.uiTextBuilder().cols(6).filter("[^A-Z-]").text("KR").create();
-        uiTextCuts2.addFocusListener(enzymeSpecFocusListener);
-        FormEntry feCuts2 = mu.feb(MsfraggerParams.PROP_search_enzyme_cut_2, uiTextCuts2).label("Cuts 2")
-                .tooltip("Capital letters for amino acids after which the enzyme cuts.").create();
-        uiTextNocuts2 = UiUtils.uiTextBuilder().cols(3).filter("[^A-Z-]").text("P").create();
-        uiTextNocuts2.addFocusListener(enzymeSpecFocusListener);
-        FormEntry feNocuts2 = mu.feb(MsfraggerParams.PROP_search_enzyme_nocut_2, uiTextNocuts2).label("No cuts 2")
-                .tooltip("Amino acids before which the enzyme won't cut.").create();
-
-
-        UiSpinnerInt uiSpinnerMissedCleavages2 = new UiSpinnerInt(2, 0, 1000, 1);
-        uiSpinnerMissedCleavages2.setColumns(2);
-        FormEntry feMissedCleavages2 = mu.feb(MsfraggerParams.PROP_allowed_missed_cleavage_2, uiSpinnerMissedCleavages2).label("Missed cleavages 2").create();
-        uiComboSense2 = UiUtils.createUiCombo(new String[]{"N", "C"});
-        FormEntry feSense2 = mu.feb(MsfraggerParams.PROP_search_enzyme_sense_2, uiComboSense2).label("Sense 2").create();
-
-        FormEntry feClipM = mu.feb(MsfraggerParams.PROP_clip_nTerm_M, new UiCheck("Clip N-term M", null))
+        FormEntry feCleavageType = mu.feb(CometParams.PROP_num_enzyme_termini, uiComboCleavage).label("Cleavage").create();
+        FormEntry feClipM = mu.feb(CometParams.PROP_clip_nterm_methionine, new UiCheck("Clip N-term M", null))
                 .tooltip("Trim protein N-terminal Methionine as a variable modification").create();
 
 
-        FormEntry fePepLenMin = mu.feb(MsfraggerParams.PROP_digest_min_length, new UiSpinnerInt(7, 0, 1000, 1, 3))
+        uiTextEnzymeName = new UiText();
+        FormEntry feEnzymeName = mu.feb(CometParams.PROP_search_enzyme_number_NAME, uiTextEnzymeName).label("Enzyme name 1").create();
+        uiTextCuts = UiUtils.uiTextBuilder().cols(6).filter("[^A-Z-]").text("KR").create();
+        uiTextCuts.addFocusListener(enzymeSpecFocusListener);
+        FormEntry feCuts = mu.feb(PROP_MISC_search_enzyme_cut_1, uiTextCuts).label("Cuts 1")
+                .tooltip("Capital letters for amino acids after which the enzyme cuts.").create();
+        uiTextNocuts = UiUtils.uiTextBuilder().cols(3).filter("[^A-Z-@]").text("P").create();
+        uiTextNocuts.addFocusListener(enzymeSpecFocusListener);
+        FormEntry feNocuts = mu.feb(PROP_MISC_search_enzyme_nocut_1, uiTextNocuts).label("No cuts 1")
+                .tooltip("Amino acids before which the enzyme won't cut.").create();
+        uiComboSense = UiUtils.createUiCombo(new String[]{"N", "C"});
+        FormEntry feSense = mu.feb(PROP_MISC_search_enzyme_sense_1, uiComboSense).label("Sense 1").create();
+
+
+        uiTextEnzymeName2 = new UiText();
+        FormEntry feEnzymeName2 = mu.feb(CometParams.PROP_search_enzyme2_number_NAME, uiTextEnzymeName2).label("Enzyme name 2").create();
+        uiTextCuts2 = UiUtils.uiTextBuilder().cols(6).filter("[^A-Z-@]").text("KR").create();
+        uiTextCuts2.addFocusListener(enzymeSpecFocusListener);
+        FormEntry feCuts2 = mu.feb(PROP_MISC_search_enzyme_cut_2, uiTextCuts2).label("Cuts 2")
+                .tooltip("Capital letters for amino acids after which the enzyme cuts.").create();
+        uiTextNocuts2 = UiUtils.uiTextBuilder().cols(3).filter("[^A-Z-]").text("P").create();
+        uiTextNocuts2.addFocusListener(enzymeSpecFocusListener);
+        FormEntry feNocuts2 = mu.feb(PROP_MISC_search_enzyme_nocut_2, uiTextNocuts2).label("No cuts 2")
+                .tooltip("Amino acids before which the enzyme won't cut.").create();
+        uiComboSense2 = UiUtils.createUiCombo(new String[]{"N", "C"});
+        FormEntry feSense2 = mu.feb(PROP_MISC_search_enzyme_sense_2, uiComboSense2).label("Sense 2").create();
+
+
+        UiSpinnerInt uiSpinnerMissedCleavages = new UiSpinnerInt(2, 0, 1000, 1);
+        uiSpinnerMissedCleavages.setColumns(2);
+        FormEntry feMissedCleavages = mu.feb(CometParams.PROP_allowed_missed_cleavage, uiSpinnerMissedCleavages).label("Missed cleavages").create();
+
+
+        FormEntry fePepLenMin = mu.feb(PROP_MISC_digest_length_lo, new UiSpinnerInt(7, 0, 1000, 1, 3))
                 .label("Peptide length").create();
-        FormEntry fePepLenMax = mu.feb(MsfraggerParams.PROP_digest_max_length, new UiSpinnerInt(50, 0, 1000, 1, 3))
+        FormEntry fePepLenMax = mu.feb(PROP_MISC_digest_length_hi, new UiSpinnerInt(50, 0, 1000, 1, 3))
                 .create();
         UiSpinnerDouble uiSpinnerDigestMassLo = new UiSpinnerDouble(200, 0, 50000, 100,
                 new DecimalFormat("0.#"));
@@ -697,11 +693,9 @@ public class CometPanel extends JPanelBase {
         mu.add(p2, feCuts2.comp);
         mu.add(p2, feNocuts2.label());
         mu.add(p2, feNocuts2.comp);
-        mu.add(p2, feMissedCleavages2.label(), mu.ccL());
-        mu.add(p2, feMissedCleavages2.comp).split(2);
         mu.add(p2, feSense2.label(), mu.ccL());
         mu.add(p2, feSense2.comp).split(2).spanX().wrap();
-// END enzyme 2
+        // END enzyme 2
         mu.add(p, p2).wrap();
 
         mu.add(p, fePepLenMin.label(), mu.ccL()).split(12);
@@ -731,7 +725,7 @@ public class CometPanel extends JPanelBase {
     }
 
     private static Object[][] convertModsToVarModsData(List<Mod> mods) {
-        Object[][] data = new Object[MsfraggerParams.VAR_MOD_COUNT_MAX][TABLE_VAR_MODS_COL_NAMES.length];
+        Object[][] data = new Object[CometParams.VAR_MOD_COUNT_MAX][TABLE_VAR_MODS_COL_NAMES.length];
         for (int i = 0; i < data.length; i++) {
             data[i][0] = false;
             data[i][1] = null;
@@ -797,10 +791,10 @@ public class CometPanel extends JPanelBase {
     }
 
     private static Object[][] convertModsToFixTableData(List<Mod> mods) {
-        Object[][] data = new Object[MsfraggerParams.ADDONS_HUMAN_READABLE.length][TABLE_FIX_MODS_COL_NAMES.length];
+        Object[][] data = new Object[CometParams.ADDONS_HUMAN_READABLE.length][TABLE_FIX_MODS_COL_NAMES.length];
         for (int i = 0; i < data.length; i++) {
             data[i][0] = false;
-            data[i][1] = MsfraggerParams.ADDONS_HUMAN_READABLE[i];
+            data[i][1] = CometParams.ADDONS_HUMAN_READABLE[i];
             data[i][2] = 0.0;
         }
         if (mods.size() > data.length) {
@@ -844,14 +838,12 @@ public class CometPanel extends JPanelBase {
         JPanel pVarmods = new JPanel(new MigLayout(new LC()));
         pVarmods.setBorder(new TitledBorder("Variable modifications"));
 
-        FormEntry feMaxVarmodsPerMod = mu.feb(MsfraggerParams.PROP_max_variable_mods_per_peptide, new UiSpinnerInt(3, 0, 5, 1, 4))
+        FormEntry feMaxVarmodsPerMod = mu.feb(CometParams.PROP_max_variable_mods_in_peptide, new UiSpinnerInt(3, 0, 5, 1, 4))
                 .label("Max variable mods on a peptide")
                 .tooltip("<html>The maximum number of variable modifications allowed per\n" +
                         "peptide sequence. This number does not include fixed modifications.").create();
-        FormEntry feMaxCombos = mu.feb(MsfraggerParams.PROP_max_variable_mods_combinations, new UiSpinnerInt(5000, 0, 100000, 500, 4))
-                .label("Max combinations").create();
 
-        FormEntry feUseAllModsInFirstSearch = mu.feb(MsfraggerParams.PROP_use_all_mods_in_first_search, new UiCheck("Use all mods in first search", null)).create();
+        FormEntry feRequireVarMods = mu.feb(CometParams.PROP_require_variable_mod, new UiCheck("Require var mod presence", null)).create();
 
         tableVarMods = createTableVarMods();
         SwingUtilities.invokeLater(() -> {
@@ -863,9 +855,7 @@ public class CometPanel extends JPanelBase {
 
         pVarmods.add(feMaxVarmodsPerMod.label(), new CC().alignX("right"));
         pVarmods.add(feMaxVarmodsPerMod.comp);
-        pVarmods.add(feMaxCombos.label(), new CC().alignX("right"));
-        pVarmods.add(feMaxCombos.comp, new CC().alignX("right"));
-        pVarmods.add(feUseAllModsInFirstSearch.comp, new CC().wrap());
+        pVarmods.add(feRequireVarMods.comp, new CC().wrap());
         pVarmods
                 .add(varModsScroll, new CC().minHeight("100px").maxHeight("150px").spanX().wrap());
 
@@ -905,54 +895,35 @@ public class CometPanel extends JPanelBase {
     private JPanel createPanelAdvancedSpectral() {
         JPanel p = mu.newPanel("Spectral Processing", true);
 
-        FormEntry feMinPeaks = mu.feb(MsfraggerParams.PROP_minimum_peaks, new UiSpinnerInt(15, 0, 1000, 1, 4))
+        FormEntry feMinPeaks = mu.feb(CometParams.PROP_minimum_peaks, new UiSpinnerInt(15, 0, 1000, 1, 4))
                 .label("Min peaks").create();
-        FormEntry feUseTopN = mu.feb(MsfraggerParams.PROP_use_topN_peaks, new UiSpinnerInt(100, 0, 1000000, 10, 4)).label("Use top N peaks").create();
-        UiSpinnerDouble spinnerMinRatio = new UiSpinnerDouble(0.01, 0, 1, 0.01, 2, new DecimalFormat("0.00"));
-        spinnerMinRatio.setColumns(4);
-        FormEntry feMinRatio = mu.feb(MsfraggerParams.PROP_minimum_ratio, spinnerMinRatio).label("Min ratio").create();
+//        FormEntry feUseTopN = mu.feb(CometParams.PROP_use_topN_peaks, new UiSpinnerInt(100, 0, 1000000, 10, 4)).label("Use top N peaks").create();
+        UiSpinnerDouble spinnerMinIntensity = new UiSpinnerDouble(0.01, 0, Double.MAX_VALUE, 0.01, 2, new DecimalFormat("0.00"));
+        spinnerMinIntensity.setColumns(4);
+        FormEntry feMinRatio = mu.feb(CometParams.PROP_minimum_intensity, spinnerMinIntensity).label("Min intensity").create();
         UiSpinnerDouble uiSpinnerClearRangeMzLo = UiUtils.spinnerDouble(0, 0, 100000, 10)
                 .setCols(5).setFormat("#.###").create();
-        FormEntry feClearRangeMzLo = mu.feb(PROP_misc_comet_clear_mz_lo, uiSpinnerClearRangeMzLo)
+        FormEntry feClearRangeMzLo = mu.feb(PROP_MISC_comet_clear_mz_lo, uiSpinnerClearRangeMzLo)
                 .label("Clear m/z range").create();
         UiSpinnerDouble uiSpinnerClearRangeMzHi = UiUtils.spinnerDouble(0, 0, 100000, 10)
                 .setCols(5).setFormat("#.###").create();
-        FormEntry feClearRangeMzHi = mu.feb(PROP_misc_comet_clear_mz_hi, uiSpinnerClearRangeMzHi)
+        FormEntry feClearRangeMzHi = mu.feb(PROP_MISC_comet_clear_mz_hi, uiSpinnerClearRangeMzHi)
                 .create();
 
-        uiComboMassMode = new UiCombo(); // UiUtils.createUiCombo(FraggerPrecursorMassMode.values());
-        uiComboMassMode.setModel(new DefaultComboBoxModel<>(new String[]{
-                FraggerPrecursorMassMode.selected.name(),
-                FraggerPrecursorMassMode.isolated.name(),
-                FraggerPrecursorMassMode.corrected.name(),
-        }));
-        uiComboMassMode.addItemListener(CometPanel::actionChangeMassMode);
-        FormEntry fePrecursorMassMode = mu.feb(MsfraggerParams.PROP_precursor_mass_mode, uiComboMassMode).label("Precursor mass mode")
-                .tooltip("<html>Determines which entry from mzML files will be\n"
-                        + "used as the precursor's mass - 'Selected' or 'Isolated' ion.\n"
-                        + "'Corrected' performs mono-isotopic mass correction").create();
-
-        FormEntry feRemovePrecPeak = mu.feb(MsfraggerParams.PROP_remove_precursor_peak, UiUtils.createUiCombo(RemovePrecursorPeak.getNames())).
+        FormEntry feRemovePrecPeak = mu.feb(CometParams.PROP_remove_precursor_peak, UiUtils.createUiCombo(CometRemovePrecursorPeak.getNames())).
                 label("Remove precursor peak")
                 .tooltip("Remove with all charge states is for ETD/ECD data and removes M+e peaks in addition to precursor peak")
                 .create();
         DecimalFormat df1 = new DecimalFormat("0.#");
-        FormEntry fePrecRemoveRangeLo = mu.feb(PROP_misc_comet_remove_precursor_range_lo,
+        FormEntry fePrecRemoveRangeLo = mu.feb(PROP_MISC_comet_remove_precursor_range_lo,
                         UiSpinnerDouble.builder(-1.5, -1000.0, 1000.0, 0.1).setCols(5).setFormat(df1).create())
                 .label("removal m/z range").create();
-        FormEntry fePrecRemoveRangeHi = mu.feb(PROP_misc_comet_remove_precursor_range_hi,
+        FormEntry fePrecRemoveRangeHi = mu.feb(PROP_MISC_comet_remove_precursor_range_hi,
                         UiSpinnerDouble.builder(+1.5, -1000.0, 1000.0, 0.1).setCols(5).setFormat(df1).create())
                 .create();
-        FormEntry feIntensityTransform = mu.feb(MsfraggerParams.PROP_intensity_transform, UiUtils.createUiCombo(IntensityTransform.getNames())).label("Intensity transform").create();
-
-
-        mu.add(p, fePrecursorMassMode.label(), mu.ccR());
-        mu.add(p, fePrecursorMassMode.comp).wrap();
 
         mu.add(p, feMinPeaks.label(), mu.ccR());
-        mu.add(p, feMinPeaks.comp).split(5).spanX();
-        mu.add(p, feUseTopN.label()).gapBefore("20px");
-        mu.add(p, feUseTopN.comp);
+        mu.add(p, feMinPeaks.comp).split(3).spanX();
         mu.add(p, feMinRatio.label()).gapBefore("20px");
         mu.add(p, feMinRatio.comp).wrap();
 
@@ -968,9 +939,6 @@ public class CometPanel extends JPanelBase {
         mu.add(p, new JLabel("-"));
         mu.add(p, fePrecRemoveRangeHi.comp).pushX().wrap();
 
-        mu.add(p, feIntensityTransform.label(), mu.ccR());
-        mu.add(p, feIntensityTransform.comp).wrap();
-
         return p;
     }
 
@@ -981,10 +949,10 @@ public class CometPanel extends JPanelBase {
     private JPanel createPanelAdvancedPeakMatch() {
         JPanel p = mu.newPanel("Advanced Peak Matching Options", true);
 
-        FormEntry feMinFragsModeling = mu.feb(MsfraggerParams.PROP_min_fragments_modelling, new UiSpinnerInt(2, 0, 1000, 1, 4)).label("Min frags modeling").create();
-        FormEntry feMinMatchedFrags = mu.feb(MsfraggerParams.PROP_min_matched_fragments, new UiSpinnerInt(4, 0, 1000, 1, 4)).label("Min matched frags").create();
+//        FormEntry feMinFragsModeling = mu.feb(MsfraggerParams.PROP_min_fragments_modelling, new UiSpinnerInt(2, 0, 1000, 1, 4)).label("Min frags modeling").create();
+//        FormEntry feMinMatchedFrags = mu.feb(MsfraggerParams.PROP_min_matched_fragments, new UiSpinnerInt(4, 0, 1000, 1, 4)).label("Min matched frags").create();
 
-        FormEntry feIonSeries = mu.feb(MsfraggerParams.PROP_fragment_ion_series, new UiText(10))
+        FormEntry feIonSeries = mu.feb(PROP_MISC_ion_series, new UiText(10))
                 .label("Fragment ion series").tooltip(
                         "Which peptide ion series to check against.\n"
                                 + "<b>Use spaces, commas or semicolons as delimiters</b>, e.g. \"b,y\"\n"
@@ -995,82 +963,37 @@ public class CometPanel extends JPanelBase {
                                 + "<b>you can define your own in 'Define custom ion series' field</b>.\n"
                                 + "If you define custom series, you will need to include the name you\n"
                                 + "gave it here.").create();
-        uiTextCustomIonSeries = new UiText(10);
-        String tooltipCustomIonSeriesDisabled = "This feature is currently disabled";
-        String tooltipCustomIonSeriesOriginal = "Custom ion series allow specification of arbitrary mass gains/losses\n"
-                + "for N- and C-terminal ions. Separate multiple definitions by commas or semicolons.\n"
-                + "<b>Format:</b> name terminus mass-delta\n"
-                + "Example definition string:\n"
-                + "b* N -17.026548;b0 N -18.010565\n"
-                + "This would define two new ion types named <i>b*</i> and <i>b0</i>,\n"
-                + "you can name them whatever you fancy. <i>b*</i> is the equivalent of an\n"
-                + "N terminal b-ion with ammonia loss, <i>b0</i> is the same with water loss.\n";
-        FormEntry feCustomSeries = mu.feb(MsfraggerParams.PROP_ion_series_definitions, uiTextCustomIonSeries)
-                .label("Define custom ion series").tooltip(tooltipCustomIonSeriesOriginal).create();
-        labelCustomIonSeries = feCustomSeries.label();
-
-        FormEntry feTrueTolUnits = mu.feb(MsfraggerParams.PROP_precursor_true_units, UiUtils.createUiCombo(
-                CometTolUnits.values())).label("Precursor true tolerance").create();
-        UiSpinnerDouble uiSpinnerTrueTol = new UiSpinnerDouble(10, 0, 100000, 5,
-                new DecimalFormat("0.#"));
-        uiSpinnerTrueTol.setColumns(4);
-        FormEntry feTrueTol = mu.feb(MsfraggerParams.PROP_precursor_true_tolerance, uiSpinnerTrueTol)
-                .tooltip("True precursor mass tolerance should be set to your instrument's\n"
-                        + "precursor mass accuracy(window is +/- this value).  This value is used\n"
-                        + "for tie breaking of results and boosting of unmodified peptides in open\n"
-                        + "search.").create();
 
         String tooltipPrecursorCHarge =
                 "Assume range of potential precursor charge states.\n" +
                         "Only relevant when override_charge is set to 1 or \n" +
                         "there is no charge information in scans.";
-        FormEntry fePrecursorChargeLo = mu.feb(PROP_misc_comet_precursor_charge_lo, new UiSpinnerInt(1, 0, 30, 1, 2))
+        FormEntry fePrecursorChargeLo = mu.feb(PROP_MISC_comet_precursor_charge_lo, new UiSpinnerInt(1, 0, 30, 1, 2))
                 .tooltip(tooltipPrecursorCHarge).create();
-        FormEntry fePrecursorChargeHi = mu.feb(PROP_misc_comet_precursor_charge_hi, new UiSpinnerInt(4, 0, 30, 1, 2))
+        FormEntry fePrecursorChargeHi = mu.feb(PROP_MISC_comet_precursor_charge_hi, new UiSpinnerInt(4, 0, 30, 1, 2))
                 .tooltip(tooltipPrecursorCHarge).create();
-        FormEntry feOverrideCharge = mu.feb(MsfraggerParams.PROP_override_charge, new UiCheck("Override charge with precursor charge", null))
-                .tooltip("Ignores precursor charge and uses charge state\n" +
-                        "specified in precursor_charge range.").create();
+        FormEntry feOverrideCharge = mu.feb(CometParams.PROP_override_charge, UiUtils.createUiCombo(new String[]{"0", "1", "2", "3"}))
+                .tooltip("<html>\n" +
+                        "    0 = keep any known precursor charge state values in the input files\n" +
+                        "    1 = ignore known precursor charge state values in the input files and instead\n" +
+                        "        use the charge state range specified by the “precursor_charge” parameter.\n" +
+                        "    2 = only search precursor charge state values that are within the range specified\n" +
+                        "        by the “precursor_charge” parameter.\n" +
+                        "    3 = keep any known precursor charge state values. For unknown charge states,\n" +
+                        "        search as singly charged if there is no signal above the precursor m/z or use the “precursor_charge” range otherwise\n")
+                .create();
 
-        UiCombo uiComboDeisotope = UiUtils.createUiCombo(DEISOTOPE);
-        FormEntry feDeisotope = mu.feb(MsfraggerParams.PROP_deisotope, uiComboDeisotope)
-                .label("Deisotope").create();
-
-        UiCombo uiComboDeneutralloss = UiUtils.createUiCombo(new String[]{"Yes", "No"});
-        FormEntry feComboDeneutralloss = mu.feb(MsfraggerParams.PROP_deneutralloss, uiComboDeneutralloss)
-                .label("Deneutralloss").create();
 
         UiSpinnerInt uiSpinnerMaxFragCharge = new UiSpinnerInt(2, 1, 20, 1, 2);
-        FormEntry feMaxFragCharge = mu.feb(MsfraggerParams.PROP_max_fragment_charge, uiSpinnerMaxFragCharge)
+        FormEntry feMaxFragCharge = mu.feb(CometParams.PROP_max_fragment_charge, uiSpinnerMaxFragCharge)
                 .label("Max fragment charge").tooltip("Enabled only when Deisotope = 0.").create();
 
-        uiComboDeisotope.addItemListener(e -> {
-            if (uiComboDeisotope.getSelectedIndex() > 0) {
-                uiComboDeneutralloss.setSelectedIndex(0);
-                updateEnabledStatus(uiComboDeneutralloss, true);
-            } else {
-                uiComboDeneutralloss.setSelectedIndex(1);
-                updateEnabledStatus(uiComboDeneutralloss, false);
-            }
-        });
 
-        mu.add(p, feMinFragsModeling.label(), mu.ccR());
-        mu.add(p, feMinFragsModeling.comp);
-        mu.add(p, feMinMatchedFrags.label(), mu.ccR());
-        mu.add(p, feMinMatchedFrags.comp);
+
         mu.add(p, feMaxFragCharge.label(), mu.ccR());
         mu.add(p, feMaxFragCharge.comp).pushX().wrap();
-        mu.add(p, feDeisotope.label(), mu.ccR());
-        mu.add(p, feDeisotope.comp);
         mu.add(p, feIonSeries.label(), mu.ccR());
         mu.add(p, feIonSeries.comp).growX();
-        mu.add(p, labelCustomIonSeries, mu.ccR());
-        mu.add(p, feCustomSeries.comp).spanX().growX().wrap();
-        mu.add(p, feComboDeneutralloss.label(), mu.ccR());
-        mu.add(p, feComboDeneutralloss.comp);
-        mu.add(p, feTrueTolUnits.label(), mu.ccR());
-        mu.add(p, feTrueTolUnits.comp).split(2);
-        mu.add(p, feTrueTol.comp).growX();
         mu.add(p, feOverrideCharge.comp).split(4).spanX();
         mu.add(p, fePrecursorChargeLo.comp);
         mu.add(p, new JLabel("-"));
@@ -1083,37 +1006,37 @@ public class CometPanel extends JPanelBase {
         JPanel p = mu.newPanel("Advanced Output Options", true);
 
 
-        FormEntry feReportTopN = mu.feb(MsfraggerParams.PROP_output_report_topN,
-                        new UiSpinnerInt(1, 1, 10000, 1, 4)).label("Report top N")
-                .tooltip("Report top N PSMs per input spectrum.").create();
-        UiSpinnerDouble uiSpinnerOutputMaxExpect = new UiSpinnerDouble(50, 0, Double.MAX_VALUE, 1,
-                new DecimalFormat("0.#"));
-        uiSpinnerOutputMaxExpect.setColumns(4);
-        FormEntry feOutputMaxExpect = mu.feb(MsfraggerParams.PROP_output_max_expect, uiSpinnerOutputMaxExpect).label("Output max expect")
-                .tooltip("Suppresses reporting of PSM if top hit has<br> expectation greater than this threshold").create();
+//        FormEntry feReportTopN = mu.feb(MsfraggerParams.PROP_output_report_topN,
+//                        new UiSpinnerInt(1, 1, 10000, 1, 4)).label("Report top N")
+//                .tooltip("Report top N PSMs per input spectrum.").create();
+//        UiSpinnerDouble uiSpinnerOutputMaxExpect = new UiSpinnerDouble(50, 0, Double.MAX_VALUE, 1,
+//                new DecimalFormat("0.#"));
+//        uiSpinnerOutputMaxExpect.setColumns(4);
+//        FormEntry feOutputMaxExpect = mu.feb(MsfraggerParams.PROP_output_max_expect, uiSpinnerOutputMaxExpect).label("Output max expect")
+//                .tooltip("Suppresses reporting of PSM if top hit has<br> expectation greater than this threshold").create();
 
 
-        uiComboOutputType = UiUtils.createUiCombo(FraggerOutputType.values());
-        FormEntry feOutputType = mu.feb(MsfraggerParams.PROP_output_format, uiComboOutputType).label("Output format")
-                .tooltip("How the search results are to be reported.\n" +
-                        "Downstream tools only support pepXML format.\n\n" +
-                        "Use PIN if you want to process the result results with Percolator by yourself.\n" +
-                        "Use TSV (tab delimited file) if you want to process \n" +
-                        "search results yourself for easier import into other software.").create();
+//        uiComboOutputType = UiUtils.createUiCombo(FraggerOutputType.values());
+//        FormEntry feOutputType = mu.feb(MsfraggerParams.PROP_output_format, uiComboOutputType).label("Output format")
+//                .tooltip("How the search results are to be reported.\n" +
+//                        "Downstream tools only support pepXML format.\n\n" +
+//                        "Use PIN if you want to process the result results with Percolator by yourself.\n" +
+//                        "Use TSV (tab delimited file) if you want to process \n" +
+//                        "search results yourself for easier import into other software.").create();
 
-        FormEntry feReportAltProts = mu.feb(MsfraggerParams.PROP_report_alternative_proteins, new UiCheck("Report alternative proteins", null, false)).create();
+//        FormEntry feReportAltProts = mu.feb(MsfraggerParams.PROP_report_alternative_proteins, new UiCheck("Report alternative proteins", null, false)).create();
 
-        uiCheckWriteCalibratedMgf = UiUtils.createUiCheck("Write calibrated MGF", false);
-        FormEntry feCheckWriteCalibratedMgf = mu.feb(MsfraggerParams.PROP_write_calibrated_mgf, uiCheckWriteCalibratedMgf).create();
+//        uiCheckWriteCalibratedMgf = UiUtils.createUiCheck("Write calibrated MGF", false);
+//        FormEntry feCheckWriteCalibratedMgf = mu.feb(MsfraggerParams.PROP_write_calibrated_mgf, uiCheckWriteCalibratedMgf).create();
 
-        mu.add(p, feReportTopN.label(), mu.ccR());
-        mu.add(p, feReportTopN.comp).growX();
-        mu.add(p, feReportAltProts.comp);
-        mu.add(p, feOutputMaxExpect.label()).split().spanX().gapLeft("10px");
-        mu.add(p, feOutputMaxExpect.comp).pushX().wrap();
-        mu.add(p, feOutputType.label(), mu.ccR());
-        mu.add(p, feOutputType.comp);
-        mu.add(p, feCheckWriteCalibratedMgf.comp).wrap();
+//        mu.add(p, feReportTopN.label(), mu.ccR());
+//        mu.add(p, feReportTopN.comp).growX();
+//        mu.add(p, feReportAltProts.comp);
+//        mu.add(p, feOutputMaxExpect.label()).split().spanX().gapLeft("10px");
+//        mu.add(p, feOutputMaxExpect.comp).pushX().wrap();
+//        mu.add(p, feOutputType.label(), mu.ccR());
+//        mu.add(p, feOutputType.comp);
+//        mu.add(p, feCheckWriteCalibratedMgf.comp).wrap();
 
         return p;
     }
@@ -1244,16 +1167,16 @@ public class CometPanel extends JPanelBase {
                     log.trace("Found misc option: {}={}", k, v);
 
                     switch (k) {
-                        case PROP_misc_comet_remove_precursor_range_lo:
+                        case PROP_MISC_comet_remove_precursor_range_lo:
                             precursorRemoveRange[0] = Double.parseDouble(v);
                             break;
-                        case PROP_misc_comet_remove_precursor_range_hi:
+                        case PROP_MISC_comet_remove_precursor_range_hi:
                             precursorRemoveRange[1] = Double.parseDouble(v);
                             break;
-                        case PROP_misc_comet_clear_mz_lo:
+                        case PROP_MISC_comet_clear_mz_lo:
                             clearMzRange[0] = Double.parseDouble(v);
                             break;
-                        case PROP_misc_comet_clear_mz_hi:
+                        case PROP_MISC_comet_clear_mz_hi:
                             clearMzRange[1] = Double.parseDouble(v);
                             break;
                         case PROP_misc_comet_digest_mass_lo:
@@ -1262,10 +1185,10 @@ public class CometPanel extends JPanelBase {
                         case PROP_misc_comet_digest_mass_hi:
                             digestMassRange[1] = Double.parseDouble(v);
                             break;
-                        case PROP_misc_comet_precursor_charge_lo:
+                        case PROP_MISC_comet_precursor_charge_lo:
                             precursorChargeRange[0] = Integer.parseInt(v);
                             break;
-                        case PROP_misc_comet_precursor_charge_hi:
+                        case PROP_MISC_comet_precursor_charge_hi:
                             precursorChargeRange[1] = Integer.parseInt(v);
                             break;
                     }
@@ -1308,14 +1231,14 @@ public class CometPanel extends JPanelBase {
         int[] precursorCharge = params.getPrecursorCharge();
         DecimalFormat fmt = new DecimalFormat("0.#");
         DecimalFormat fmt2 = new DecimalFormat("0.##");
-        map.put(PROP_misc_comet_clear_mz_lo, fmt.format(clearMzRange[0]));
-        map.put(PROP_misc_comet_clear_mz_hi, fmt.format(clearMzRange[1]));
+        map.put(PROP_MISC_comet_clear_mz_lo, fmt.format(clearMzRange[0]));
+        map.put(PROP_MISC_comet_clear_mz_hi, fmt.format(clearMzRange[1]));
         map.put(PROP_misc_comet_digest_mass_lo, fmt.format(digestMassRange[0]));
         map.put(PROP_misc_comet_digest_mass_hi, fmt.format(digestMassRange[1]));
-        map.put(PROP_misc_comet_precursor_charge_lo, fmt.format(precursorCharge[0]));
-        map.put(PROP_misc_comet_precursor_charge_hi, fmt.format(precursorCharge[1]));
-        map.put(PROP_misc_comet_remove_precursor_range_lo, fmt2.format(precursorRemoveRange[0]));
-        map.put(PROP_misc_comet_remove_precursor_range_hi, fmt2.format(precursorRemoveRange[1]));
+        map.put(PROP_MISC_comet_precursor_charge_lo, fmt.format(precursorCharge[0]));
+        map.put(PROP_MISC_comet_precursor_charge_hi, fmt.format(precursorCharge[1]));
+        map.put(PROP_MISC_comet_remove_precursor_range_lo, fmt2.format(precursorRemoveRange[0]));
+        map.put(PROP_MISC_comet_remove_precursor_range_hi, fmt2.format(precursorRemoveRange[1]));
 
         return map;
     }

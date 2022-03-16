@@ -38,7 +38,7 @@ import com.dmtavt.fragpipe.api.SearchTypeProp;
 import com.dmtavt.fragpipe.params.AbstractParams;
 import com.dmtavt.fragpipe.params.Props;
 import com.dmtavt.fragpipe.params.Props.Prop;
-import com.dmtavt.fragpipe.tools.enums.CleavageType;
+import com.dmtavt.fragpipe.tools.enums.CometCleavageType;
 import com.dmtavt.fragpipe.tools.enums.FraggerOutputType;
 import com.dmtavt.fragpipe.tools.enums.FraggerPrecursorMassMode;
 import com.dmtavt.fragpipe.tools.enums.MassTolUnits;
@@ -221,6 +221,7 @@ public class MsfraggerParams extends AbstractParams {
     };
 
     public static final Set<String> PROP_NAMES_SET;
+
     static {
         PROP_NAMES_SET = new HashSet<>(Arrays.asList(PROP_NAMES));
     }
@@ -626,15 +627,15 @@ public class MsfraggerParams extends AbstractParams {
         return FraggerPrecursorMassMode.valueOf(v.value);
     }
     
-    public CleavageType getNumEnzymeTermini() {
+    public CometCleavageType getNumEnzymeTermini() {
         int v = Integer.parseInt(props.getProp(PROP_num_enzyme_termini, "2").value);
-        for (CleavageType ct : CleavageType.values())
+        for (CometCleavageType ct : CometCleavageType.values())
             if (ct.valueInParamsFile() == v)
                 return ct;
         throw new IllegalStateException("Unknown cleavage type found in properties.");
     }
     
-    public void setNumEnzymeTermini(CleavageType ct) {
+    public void setNumEnzymeTermini(CometCleavageType ct) {
         props.setProp(PROP_num_enzyme_termini, Integer.toString(ct.valueInParamsFile()));
     }
     

@@ -25,7 +25,7 @@ import com.dmtavt.fragpipe.api.PyInfo;
 import com.dmtavt.fragpipe.exceptions.NoStickyException;
 import com.dmtavt.fragpipe.messages.NoteConfigPython;
 import com.dmtavt.fragpipe.tools.dbsplit.DbSplit2;
-import com.dmtavt.fragpipe.tools.enums.CleavageType;
+import com.dmtavt.fragpipe.tools.enums.CometCleavageType;
 import com.dmtavt.fragpipe.tools.enums.FraggerOutputType;
 import com.dmtavt.fragpipe.tools.enums.MassTolUnits;
 import com.dmtavt.fragpipe.tools.enums.PrecursorMassTolUnits;
@@ -359,7 +359,7 @@ public class CmdMsfragger extends CmdBase {
       return false;
     }
 
-    if ((hasDia || hasGpfDia || hasDiaLib) && !isRunDiaU && params.getNumEnzymeTermini() == CleavageType.NONSPECIFIC) {
+    if ((hasDia || hasGpfDia || hasDiaLib) && !isRunDiaU && params.getNumEnzymeTermini() == CometCleavageType.NONSPECIFIC) {
       if (Fragpipe.headless) {
         log.error("MSFragger cannot perform nonspecific search for DIA, GPF-DIA, or DIA-Lib data. Please enable DIA-Umpire instead.");
       } else {

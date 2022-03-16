@@ -36,9 +36,6 @@ import com.dmtavt.fragpipe.params.PropertyFileContent;
  * Created by Dmitry Avtonomov on 2016-04-27.
  */
 public class CometParams implements PropertyFileContent {
-
-
-
     public static final String PROP_database_name = "database_name";
     public static final String PROP_decoy_search = "decoy_search";
     public static final String PROP_peff_format = "peff_format";
@@ -54,7 +51,9 @@ public class CometParams implements PropertyFileContent {
     public static final String PROP_isotope_error = "isotope_error";
 
     public static final String PROP_search_enzyme_number = "search_enzyme_number";
+    public static final String PROP_search_enzyme_number_NAME = "search_enzyme_number.name";
     public static final String PROP_search_enzyme2_number = "search_enzyme2_number";
+    public static final String PROP_search_enzyme2_number_NAME = "search_enzyme2_number.name";
     public static final String PROP_num_enzyme_termini = "num_enzyme_termini";
     public static final String PROP_allowed_missed_cleavage = "allowed_missed_cleavage";
 
@@ -268,6 +267,19 @@ public class CometParams implements PropertyFileContent {
 
 
     public static final String COMET_ENZYME_INFO = "[COMET_ENZYME_INFO]";
+    public static int VAR_MOD_COUNT_MAX = 9;
+    public static final String[] ADDON_NAMES = {"Cterm_peptide", "Nterm_peptide", "Cterm_protein", "Nterm_protein",
+            "G_glycine", "A_alanine", "S_serine", "P_proline", "V_valine", "T_threonine", "C_cysteine", "L_leucine",
+            "I_isoleucine", "N_asparagine", "D_aspartic_acid", "Q_glutamine", "K_lysine", "E_glutamic_acid", "M_methionine",
+            "H_histidine", "F_phenylalanine", "R_arginine", "Y_tyrosine", "W_tryptophan",
+            "B_user_amino_acid", "J_user_amino_acid", "O_user_amino_acid", "U_user_amino_acid", "X_user_amino_acid", "Z_user_amino_acid",
+    };
+
+    public static final String[] ADDONS_HUMAN_READABLE = {"C-Term Peptide", "N-Term Peptide", "C-Term Protein", "N-Term Protein",
+            "G (glycine)", "A (alanine)", "S (serine)", "P (proline)", "V (valine)", "T (threonine)", "C (cysteine)", "L (leucine)",
+            "I (isoleucine)", "N (asparagine)", "D (aspartic acid)", "Q (glutamine)", "K (lysine)", "E (glutamic acid)", "M (methionine)",
+            "H (histidine)", "F (phenylalanine)", "R (arginine)", "Y (tyrosine)", "W (tryptophan)",
+            "B ", "J", "O", "U", "X", "Z", };
     protected Map<Integer, String> cometEnzymeInfos = new TreeMap<>();
     protected String firstLine;
     protected Properties props = new Properties();
