@@ -9,7 +9,6 @@ import com.dmtavt.fragpipe.api.SearchTypeProp;
 import com.dmtavt.fragpipe.messages.MessageMsfraggerParamsUpdate;
 import com.dmtavt.fragpipe.messages.MessagePrecursorSelectionMode;
 import com.dmtavt.fragpipe.messages.MessageSearchType;
-import com.dmtavt.fragpipe.messages.MessageValidityMassCalibration;
 import com.dmtavt.fragpipe.messages.NoteConfigComet;
 import com.dmtavt.fragpipe.messages.NoteConfigDbsplit;
 import com.dmtavt.fragpipe.messages.NoteConfigSearchEngine;
@@ -21,21 +20,15 @@ import com.dmtavt.fragpipe.tools.enums.CleavageType;
 import com.dmtavt.fragpipe.tools.enums.FraggerOutputType;
 import com.dmtavt.fragpipe.tools.enums.FraggerPrecursorMassMode;
 import com.dmtavt.fragpipe.tools.enums.IntensityTransform;
-import com.dmtavt.fragpipe.tools.enums.MassTolUnits;
-import com.dmtavt.fragpipe.tools.enums.PrecursorMassTolUnits;
 import com.dmtavt.fragpipe.tools.enums.RemovePrecursorPeak;
-import com.dmtavt.fragpipe.tools.fragger.EnzymeProvider;
 import com.dmtavt.fragpipe.tools.fragger.Mod;
 import com.dmtavt.fragpipe.tools.fragger.MsfraggerEnzyme;
 import com.dmtavt.fragpipe.tools.fragger.MsfraggerParams;
-import com.dmtavt.fragpipe.tools.fragger.MsfraggerProps;
 import com.github.chhh.utils.MapUtils;
 import com.github.chhh.utils.StringUtils;
 import com.github.chhh.utils.SwingUtils;
-import com.github.chhh.utils.swing.DocumentFilters;
 import com.github.chhh.utils.swing.FileChooserUtils;
 import com.github.chhh.utils.swing.FormEntry;
-import com.github.chhh.utils.swing.HtmlStyledJEditorPane;
 import com.github.chhh.utils.swing.JPanelBase;
 import com.github.chhh.utils.swing.MigUtils;
 import com.github.chhh.utils.swing.UiCheck;
@@ -58,7 +51,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
-import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.TableCellEditor;
@@ -153,6 +145,7 @@ public class CometPanel extends JPanelBase {
 
     UiCombo uiComboMassDiffToVariableMod;
     UiCombo uiComboIsoErrors;
+    private UiSpinnerDouble uiSpinnerFragBinOffset;
 
     private static String itos(int i) {
         return Integer.toString(i);
@@ -178,10 +171,14 @@ public class CometPanel extends JPanelBase {
             }
             return "1";
         });
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_precursor_mass_units, s -> itos(PrecursorMassTolUnits.valueOf(s).valueInParamsFile()));
-        CONVERT_TO_FILE.put(MsfraggerParams.PROP_fragment_mass_units, s -> itos(MassTolUnits.valueOf(s).valueInParamsFile()));
+
+
+        CONVERT_TO_FILE.put(CometParams.PROP_peptide_mass_tolerance, s -> itos(CometTolUnits.valueOf(s).valueInParamsFile()));
+        CONVERT_TO_FILE.put(MsfraggerParams.PROP_fragment_mass_units, s -> itos(CometTolUnits.valueOf(s).valueInParamsFile()));
+
+
         CONVERT_TO_FILE.put(MsfraggerParams.PROP_precursor_true_units, s -> itos(
-                MassTolUnits.valueOf(s).valueInParamsFile()));
+                CometTolUnits.valueOf(s).valueInParamsFile()));
         CONVERT_TO_FILE.put(MsfraggerParams.PROP_calibrate_mass, s -> itos(Arrays.asList(CALIBRATE_LABELS).indexOf(s)));
         CONVERT_TO_FILE.put(MsfraggerParams.PROP_use_all_mods_in_first_search, s -> itos(Boolean.parseBoolean(s) ? 1 : 0));
         CONVERT_TO_FILE.put(MsfraggerParams.PROP_num_enzyme_termini, s -> itos(
@@ -208,9 +205,9 @@ public class CometPanel extends JPanelBase {
         CONVERT_TO_GUI.put(MsfraggerParams.PROP_write_calibrated_mgf, s -> Boolean.toString(Integer.parseInt(s) > 0));
         CONVERT_TO_GUI.put(MsfraggerParams.PROP_mass_diff_to_variable_mod, s -> MASS_DIFF_TO_VAR_MOD[MASS_DIFF_TO_VAR_MOD_MAP[Integer.parseInt(s)]]);
         CONVERT_TO_GUI.put(MsfraggerParams.PROP_deisotope, s -> DEISOTOPE[Integer.parseInt(s)]);
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_precursor_mass_units, s -> PrecursorMassTolUnits.fromParamsFileRepresentation(s).name());
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_fragment_mass_units, s -> MassTolUnits.fromFileToUi(s).name());
-        CONVERT_TO_GUI.put(MsfraggerParams.PROP_precursor_true_units, s -> MassTolUnits.fromFileToUi(s).name());
+        CONVERT_TO_GUI.put(MsfraggerParams.PROP_precursor_mass_units, s -> CometTolUnits.fromParamsFileToUi(s).name());
+        CONVERT_TO_GUI.put(MsfraggerParams.PROP_fragment_mass_units, s -> CometTolUnits.fromParamsFileToUi(s).name());
+        CONVERT_TO_GUI.put(MsfraggerParams.PROP_precursor_true_units, s -> CometTolUnits.fromParamsFileToUi(s).name());
         CONVERT_TO_GUI.put(MsfraggerParams.PROP_calibrate_mass, s -> CALIBRATE_LABELS[Integer.parseInt(s)]);
         CONVERT_TO_GUI.put(MsfraggerParams.PROP_use_all_mods_in_first_search, s -> Boolean.toString(Integer.parseInt(s) == 1));
         CONVERT_TO_GUI.put(MsfraggerParams.PROP_num_enzyme_termini, s -> CleavageType.fromValueInParamsFile(s).name());
@@ -237,14 +234,14 @@ public class CometPanel extends JPanelBase {
         MAP_COMET_ISO_ERROR_CODES.put("2", "0/+1/+2");
         MAP_COMET_ISO_ERROR_CODES.put("3", "0/+1/+2/+3");
         MAP_COMET_ISO_ERROR_CODES.put("4", "-8/-4/0/+4/+8");
-        MAP_COMET_ISO_ERROR_CODES.put("5", "-1/0/1/2/3");
+        MAP_COMET_ISO_ERROR_CODES.put("5", "-1/0/+1/+2/+3");
     }
 
     private UiCheck checkRun;
     private JPanel pContent;
     private ModsTable tableVarMods;
     private ModsTable tableFixMods;
-    private UiCombo uiComboMassCalibrate;
+//    private UiCombo uiComboMassCalibrate;
     public UiCombo uiComboOutputType;
     private UiCombo uiComboMassMode;
     private UiSpinnerInt uiSpinnerDbsplit;
@@ -266,7 +263,7 @@ public class CometPanel extends JPanelBase {
     private UiText uiTextEnzymeName2;
 
     private UiCombo uiComboLoadDefaultsNames;
-    private UiSpinnerDouble uiSpinnerPrecTolLo;
+//    private UiSpinnerDouble uiSpinnerPrecTolLo;
     private UiSpinnerDouble uiSpinnerPrecTolHi;
     private UiCombo uiComboPrecursorTolUnits;
     private final Map<String, String> cache = new HashMap<>();
@@ -416,66 +413,77 @@ public class CometPanel extends JPanelBase {
         JPanel p = mu.newPanel("Peak Matching", true);
 
         // precursor mass tolerance
-        java.util.List<String> units = Seq.of(PrecursorMassTolUnits.values()).map(PrecursorMassTolUnits::name).toList();
+        java.util.List<String> units = Seq.of(CometTolUnits.values()).map(CometTolUnits::name).toList();
         uiComboPrecursorTolUnits = UiUtils.createUiCombo(units);
-        FormEntry fePrecTolUnits = mu.feb(MsfraggerParams.PROP_precursor_mass_units, uiComboPrecursorTolUnits).label("Precursor mass tolerance").create();
-//        uiSpinnerPrecTolLo = new UiSpinnerDouble(-20, -10000, 10000, 1,
-//                new DecimalFormat("0.#"));
-//        uiSpinnerPrecTolLo.setColumns(4);
-//        FormEntry fePrecTolLo = mu.feb(MsfraggerParams.PROP_precursor_mass_lower, uiSpinnerPrecTolLo).create();
+        FormEntry fePrecTolUnits = mu.feb(CometParams.PROP_peptide_mass_units, uiComboPrecursorTolUnits)
+                .label("Precursor mass tolerance").create();
         uiSpinnerPrecTolHi = new UiSpinnerDouble(+20, -10000, 10000, 1,
-                new DecimalFormat("0.#"));
+                new DecimalFormat("0.###"));
         uiSpinnerPrecTolHi.setColumns(4);
-        FormEntry fePrecTolHi = mu.feb(MsfraggerParams.PROP_precursor_mass_upper, uiSpinnerPrecTolHi).create();
+        FormEntry fePrecTolHi = mu.feb(CometParams.PROP_peptide_mass_tolerance, uiSpinnerPrecTolHi).create();
 
         uiComboPrecursorTolUnits.addItemListener(e -> {
             Object selected = uiComboPrecursorTolUnits.getSelectedItem();
             if (selected == null || StringUtils.isNullOrWhitespace((String) selected))
                 return;
-            final boolean isDisabled = PrecursorMassTolUnits.valueOf((String) selected).valueInParamsFile() > 1;
-            uiSpinnerPrecTolLo.setEnabled(!isDisabled);
-            uiSpinnerPrecTolHi.setEnabled(!isDisabled);
 
-            // treat calibrate masses dropdown
-            boolean wasEnabled = uiComboMassCalibrate.isEnabled();
-            if (wasEnabled && isDisabled) { //  switching from enabled to disabled
-                String oldVal = (String) uiComboMassCalibrate.getSelectedItem();
-                if (oldVal != null) {
-                    cache.put(MsfraggerParams.PROP_calibrate_mass, oldVal);
-                }
-                uiComboMassCalibrate.setSelectedItem(CALIBRATE_VALUE_OFF);
-                uiComboMassCalibrate.setEnabled(false);
-            } else if (!wasEnabled && !isDisabled) { // switching from disabled to enabled
-                String cachedVal = cache.get(MsfraggerParams.PROP_calibrate_mass);
-                if (cachedVal != null) {
-                    uiComboMassCalibrate.setSelectedItem(cachedVal);
-                }
-                uiComboMassCalibrate.setEnabled(true);
+            final CometTolUnits cometTolUnits = CometTolUnits.valueOf((String) selected);
+            double fragBinOffset = 0;
+            switch (cometTolUnits) {
+                case PPM:
+                    fragBinOffset = 0;
+                    break;
+                case amu:
+                case mmu:
+                    fragBinOffset = 0.4;
+                    break;
             }
+            uiSpinnerFragBinOffset.setValue(fragBinOffset);
         });
 
         // fragment mass tolerance
-        FormEntry feFragTolUnits = mu.feb(MsfraggerParams.PROP_fragment_mass_units, UiUtils.createUiCombo(
-                        MassTolUnits.values()))
-                .label("Fragment mass tolerance").create();
-        UiSpinnerDouble uiSpinnerFragTol = new UiSpinnerDouble(10, 0, 10000, 1,
+        UiSpinnerDouble uiSpinnerFragBinTol = new UiSpinnerDouble(0.0, 0, 10000, 1,
                 new DecimalFormat("0.###"));
-        uiSpinnerFragTol.setColumns(4);
-        FormEntry feFragTol = mu.feb(MsfraggerParams.PROP_fragment_mass_tolerance, uiSpinnerFragTol).create();
+        uiSpinnerFragBinTol.setColumns(4);
+        FormEntry feFragBinTol = mu.feb(CometParams.PROP_fragment_bin_tol, uiSpinnerFragBinTol)
+                .label("Fragment bin tolerance")
+                .tooltip("binning to use on fragment ions")
+                .create();
+
+        uiSpinnerFragBinOffset = new UiSpinnerDouble(0, 0, 1, 0.1,
+                new DecimalFormat("0.###"));
+        uiSpinnerFragBinOffset.setColumns(4);
+        FormEntry feFragBinOffset = mu.feb(CometParams.PROP_fragment_bin_offset, uiSpinnerFragBinOffset)
+                .label("offset")
+                .tooltip("<html>This parameter controls how each fragment bin of size fragment_bin_tol is defined in terms of where each bin starts.\n" +
+                        "For example, assume a fragment_bin_tol of 1.0. Most intuitively, the fragment bins would be 0.0 to 1.0, 1.0 to 2.0, 2.0 to 3.0, etc.\n" +
+                        "This set of bins corresponds to a fragment_bin_offset of 0.0.\n" +
+                        "However, consider if we set fragment_bin_offset to 0.5;\n" +
+                        "this would cause the bins to be 0.5 to 1.5, 1.5 to 2.5, 2.5 to 3.5, etc.\n" +
+                        "So this fragment_bin_offset gives one a mechanism to define where each bin starts and is centered.\n" +
+                        "For ion trap data with a fragment_bin_tol of 1.0005, it is recommended to set fragment_bin_offset to 0.4.\n" +
+                        "For high-res MS/MS data, one might use a fragment_bin_tol of 0.02 and a corresponding fragment_bin_offset of 0.0.\n" +
+                        "Allowed values are between 0.0 and 1.0. The actual offset value is scaled by the fragment_bin_tol value.\n" +
+                        "I know this is esoteric and any normal user should not give this parameter any thought beyond using the recommended settings.")
+                .create();
 
 
-        // mass calibrate
-//        uiComboMassCalibrate = UiUtils.createUiCombo(CALIBRATE_LABELS);
-//        String minFraggerVer = MsfraggerProps.getProperties().getProperty(MsfraggerProps.PROP_MIN_VERSION_FRAGGER_MASS_CALIBRATE, "201904");
-//        FormEntry feCalibrate = mu.feb(MsfraggerParams.PROP_calibrate_mass, uiComboMassCalibrate)
-//                .label("<html>Calibration and Optimization")
-//                .tooltip(String.format("<html>Requires MSFragger %s+. Not compatible with Database Splitting.", minFraggerVer)).create();
-
-//        uiTextIsoErr = UiUtils.uiTextBuilder().cols(10).filter("[^\\d/-]+").text("-1/0/1/2").create();
         final List<String> isoCorrectionVals = MAP_COMET_ISO_ERROR_CODES.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(Map.Entry::getValue).collect(Collectors.toList());
         uiComboIsoErrors = UiUtils.createUiCombo(isoCorrectionVals);
+
+        UiCombo uiComboPrecTolTypes = UiUtils.createUiCombo(new String[] {"0", "1"});
+        FormEntry fePrecTolType = mu.feb(CometParams.PROP_precursor_tolerance_type, uiComboPrecTolTypes)
+                .label("Precursor tolerance type")
+                .tooltip("<html>This parameter controls how the “peptide_mass_tolerance” parameter is applied.\n" +
+                        "That tolerance can be applied to the singly charged peptide mass or it can be applied to the precursor m/z.\n" +
+                        "Note that this parameter is applied only when amu or mmu tolerances are specified.\n" +
+                        "It is ignored when ppm tolerances are specified.\n" +
+                        "Valid values are 0 or 1.\n" +
+                        "Set this parameter to 0 to specify that the mass tolerance is applied to the singly charged peptide mass.\n" +
+                        "Set this parameter to 1 to specify that the mass tolerance is applied to the precursor m/z.")
+                .create();
 
         FormEntry feIsotopeError = mu.feb(MsfraggerParams.PROP_isotope_error, uiComboIsoErrors)
                 .label("Isotope error")
@@ -485,15 +493,15 @@ public class CometPanel extends JPanelBase {
 
         mu.add(p, fePrecTolUnits.label(), mu.ccR());
         mu.add(p, fePrecTolUnits.comp).split(2);
-//        mu.add(p, fePrecTolLo.comp);
-//        mu.add(p, new JLabel("-"));
         mu.add(p, fePrecTolHi.comp);
-        mu.add(p, feFragTolUnits.label(), mu.ccR()).gapLeft("10px");
-        mu.add(p, feFragTolUnits.comp).split(2);
-        mu.add(p, feFragTol.comp).pushX().wrap();
+        mu.add(p, feFragBinTol.label(), mu.ccR()).gapLeft("10px");
+        mu.add(p, feFragBinTol.comp).split(3);
+        mu.add(p, feFragBinOffset.label());
+        mu.add(p, feFragBinOffset.comp).pushX().wrap();
 
-//        mu.add(p, feCalibrate.label(), mu.ccR());
-//        mu.add(p, feCalibrate.comp);
+        mu.add(p, fePrecTolType.label(), mu.ccR());
+        mu.add(p, fePrecTolType.comp).spanX().wrap();
+
         mu.add(p, feIsotopeError.label(), mu.ccR());
         mu.add(p, feIsotopeError.comp).spanX().wrap();
 
@@ -1002,7 +1010,7 @@ public class CometPanel extends JPanelBase {
         labelCustomIonSeries = feCustomSeries.label();
 
         FormEntry feTrueTolUnits = mu.feb(MsfraggerParams.PROP_precursor_true_units, UiUtils.createUiCombo(
-                MassTolUnits.values())).label("Precursor true tolerance").create();
+                CometTolUnits.values())).label("Precursor true tolerance").create();
         UiSpinnerDouble uiSpinnerTrueTol = new UiSpinnerDouble(10, 0, 100000, 5,
                 new DecimalFormat("0.#"));
         uiSpinnerTrueTol.setColumns(4);
@@ -1157,8 +1165,9 @@ public class CometPanel extends JPanelBase {
 
         // ram and threads parameters have been moved to Workflow tab, need to re-inject them when saving fragger params
         TabWorkflow tabWorkflow = Fragpipe.getStickyStrict(TabWorkflow.class);
-        map.put(MsfraggerParams.PROP_num_threads, itos(tabWorkflow.getThreads()));
+        map.put(CometParams.PROP_num_threads, itos(tabWorkflow.getThreads()));
 
+//        CometParams ps = paramsFromMap(map);
         MsfraggerParams params = paramsFromMap(map);
 
         // before collecting mods, make sure that no table cell editor is open
@@ -1213,10 +1222,12 @@ public class CometPanel extends JPanelBase {
         final double[] digestMassRange = new double[2];
         final int[] precursorChargeRange = new int[2];
 
+        final Set<String> propNames = Arrays.stream(CometParams.PROP_NAMES).collect(Collectors.toSet());
+
         for (Map.Entry<String, String> e : map.entrySet()) {
             final String k = e.getKey();
             final String v = e.getValue();
-            if (MsfraggerParams.PROP_NAMES_SET.contains(k)) {
+            if (propNames.contains(k)) {
                 // known property
                 Function<String, String> converter = CONVERT_TO_FILE.getOrDefault(k, s -> s);
                 String converted = converter.apply(v);
@@ -1266,10 +1277,6 @@ public class CometPanel extends JPanelBase {
                 }
             }
         }
-        p.setClearMzRange(clearMzRange);
-        p.setDigestMassRange(digestMassRange);
-        p.setPrecursorCharge(precursorChargeRange);
-        p.setRemovePrecursorRange(precursorRemoveRange);
 
         FraggerOutputType outType = p.getOutputFormat();
         if (outType == null) {
@@ -1333,12 +1340,12 @@ public class CometPanel extends JPanelBase {
         updateEnabledStatus(uiSpinnerDbsplit, m.isValid());
     }
 
-    @Subscribe
-    public void on(MessageValidityMassCalibration msg) {
-        log.debug("Got message 'MessageValidityMassCalibration' reading isValid = {} ", msg.isValid);
-        enablementMapping.put(uiComboMassCalibrate, msg.isValid);
-        updateEnabledStatus(uiComboMassCalibrate, msg.isValid);
-    }
+//    @Subscribe
+//    public void on(MessageValidityMassCalibration msg) {
+//        log.debug("Got message 'MessageValidityMassCalibration' reading isValid = {} ", msg.isValid);
+//        enablementMapping.put(uiComboMassCalibrate, msg.isValid);
+//        updateEnabledStatus(uiComboMassCalibrate, msg.isValid);
+//    }
 
     @Subscribe
     public void on(MessagePrecursorSelectionMode m) {
