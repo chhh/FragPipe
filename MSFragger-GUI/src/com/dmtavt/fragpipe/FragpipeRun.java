@@ -1372,19 +1372,18 @@ public class FragpipeRun {
     addToGraph(graphOrder, cmdMsfragger, DIRECTION.IN, cmdCheckCentroid, cmdUmpire);
     addToGraph(graphOrder, cmdComet, DIRECTION.IN, cmdCheckCentroid, cmdUmpire);
 
-    addToGraph(graphOrder, cmdCrystalc, DIRECTION.IN, cmdMsfragger);
-    addToGraph(graphOrder, cmdMSBooster, DIRECTION.IN, cmdMsfragger);
-    addToGraph(graphOrder, cmdPeptideProphet, DIRECTION.IN, cmdMsfragger, cmdCrystalc);
-    addToGraph(graphOrder, cmdPercolator, DIRECTION.IN, cmdMsfragger, cmdCrystalc, cmdMSBooster);
-    for (final CmdBase cmdPeptideValidation : new CmdBase[]{cmdPeptideProphet, cmdPercolator}) {
-      addToGraph(graphOrder, cmdPtmProphet, DIRECTION.IN, cmdPeptideValidation);
-      addToGraph(graphOrder, cmdProteinProphet, DIRECTION.IN, cmdPeptideValidation, cmdPtmProphet);
-    }
+    // validation
+    addToGraph(graphOrder, cmdCrystalc, DIRECTION.IN, cmdMsfragger, cmdComet);
+    addToGraph(graphOrder, cmdMSBooster, DIRECTION.IN, cmdMsfragger, cmdComet);
+    addToGraph(graphOrder, cmdPeptideProphet, DIRECTION.IN, cmdMsfragger, cmdComet, cmdCrystalc);
+    addToGraph(graphOrder, cmdPercolator, DIRECTION.IN, cmdMsfragger, cmdComet, cmdCrystalc, cmdMSBooster);
+    addToGraph(graphOrder, cmdPtmProphet, DIRECTION.IN, cmdPeptideProphet, cmdPercolator);
+    addToGraph(graphOrder, cmdProteinProphet, DIRECTION.IN, cmdPeptideProphet, cmdPercolator, cmdPtmProphet);
+    // reporting
     addToGraph(graphOrder, cmdPhilosopherDbAnnotate, DIRECTION.IN, cmdProteinProphet);
     addToGraph(graphOrder, cmdPhilosopherFilter, DIRECTION.IN, cmdPhilosopherDbAnnotate, cmdProteinProphet);
     addToGraph(graphOrder, cmdFreequant, DIRECTION.IN, cmdPhilosopherFilter);
-    for (final CmdBase cmdPeptideValidation : new CmdBase[]{cmdPeptideProphet, cmdPercolator})
-      addToGraph(graphOrder, cmdIprophet, DIRECTION.IN, cmdPhilosopherReport, cmdPeptideValidation);
+    addToGraph(graphOrder, cmdIprophet, DIRECTION.IN, cmdPhilosopherReport, cmdPeptideProphet, cmdPercolator);
     addToGraph(graphOrder, cmdPhilosopherAbacus, DIRECTION.IN, cmdPhilosopherReport, cmdIprophet, cmdProteinProphet);
     addToGraph(graphOrder, cmdTmtFreequant, DIRECTION.IN, cmdPhilosopherFilter);
     addToGraph(graphOrder, cmdTmtLabelQuant, DIRECTION.IN, cmdPhilosopherFilter, cmdTmtFreequant);
