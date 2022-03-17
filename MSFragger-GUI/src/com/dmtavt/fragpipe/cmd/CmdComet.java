@@ -125,35 +125,35 @@ public class CmdComet extends CmdBase {
 
         initPreConfig();
         if (StringUtils.isNullOrWhitespace(binComet.getBin())) {
-            showError(Fragpipe.headless, "Binary for running Comet can not be an empty string.", comp);
+            showError("Binary for running Comet can not be an empty string.", comp);
             return false;
         }
         if (testFilePath(binComet.getBin(), "") == null) {
-            showError(Fragpipe.headless,"Binary for running Fragger not found or could not be run.\nNeither on PATH, nor in the working directory", comp);
+            showError("Binary for running Fragger not found or could not be run.\nNeither on PATH, nor in the working directory", comp);
             return false;
         }
 
         boolean isOpenFormats = lcmsFiles.stream().map(lcms -> lcms.getPath().toString().toLowerCase(Locale.ROOT))
                 .allMatch(f -> f.endsWith(".mzml") || f.endsWith(".mzxml"));
         if (!isOpenFormats) {
-            showError(Fragpipe.headless, "Comet only supports mzml and mzxml", comp);
+            showError("Comet only supports mzml and mzxml", comp);
             return false;
         }
 
         // Fasta file
         if (pathFasta == null) {
-            showError(Fragpipe.headless, "Fasta file path (Fragger) can't be empty", comp);
+            showError("Fasta file path (Fragger) can't be empty", comp);
             return false;
         }
 
         if ((hasDia || hasGpfDia || hasDiaLib) && !isRunDiaU) {
-            showError(Fragpipe.headless, "Comet can't process DIA data natively, enable DIA-Umpire", comp);
+            showError("Comet can't process DIA data natively, enable DIA-Umpire", comp);
             return false;
         }
 
         // Search parameter file
         if (!Paths.get(cometParamsPath).toFile().exists()) {
-            showError(Fragpipe.headless, "Comet can't process DIA data natively, enable DIA-Umpire", comp);
+            showError("Comet can't process DIA data natively, enable DIA-Umpire", comp);
         }
 
         //params.setDatabaseName(pathFasta); // we will pass it as a parameter instead
@@ -174,23 +174,6 @@ public class CmdComet extends CmdBase {
         // But for slicing it's all up to the python script.
         // final int commandLenLimit = isSlicing ? Integer.MAX_VALUE : 32000;
         final int commandLenLimit = 32000; // Make is a little bit smaller than 1 << 15 to make sure that it won't crash.
-
-    /* disable deletion of temp dir when error occurs
-    if (isSlicing) {
-      // schedule to always try to delete the temp dir when FragPipe finishes execution
-      final String tempDirName = "split_peptide_index_tempdir";
-      Path toDelete = wd.resolve(tempDirName).toAbsolutePath().normalize();
-      toDelete.toFile().deleteOnExit();
-      ProcessManager.addFilesToDelete(Collections.singleton(toDelete));
-      try {
-        if (Files.exists(toDelete)) {
-          FileUtils.deleteDirectory(toDelete.toFile());
-        }
-      } catch (IOException e) {
-        log.error("Could not delete leftover temporary directory from DB Splitting", e);
-      }
-    }
-    */
 
         StringBuilder sb = new StringBuilder();
 
@@ -218,7 +201,7 @@ public class CmdComet extends CmdBase {
                 // check if the command length is ok so far
                 sb.append(String.join(" ", cmd));
                 if (sb.length() > commandLenLimit) {
-                    showError("MSFragger command line length too large even for a single file.", comp);
+                    showError("Comet command line length too large even for a single file.", comp);
                     return false;
                 }
 

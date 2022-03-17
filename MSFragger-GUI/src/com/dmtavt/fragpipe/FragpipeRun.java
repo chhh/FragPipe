@@ -880,7 +880,7 @@ public class FragpipeRun {
 
     addConfig.accept(cmdComet, () -> {
       if (cmdComet.isRun()) {
-        if (!cmdComet.configure(parent, isDryRun, jarPath, binMsfragger, fastaFile, cometPanel.getParamsFilePath(), ramGb, sharedLcmsFiles, decoyTag, tabWorkflow.hasDda(), tabWorkflow.hasDia(), tabWorkflow.hasGpfDia(), tabWorkflow.hasDiaLib(), cmdUmpire.isRun())) {
+        if (!cmdComet.configure(parent, isDryRun, jarPath, binComet, fastaFile, cometPanel.getParamsFilePath(), ramGb, sharedLcmsFiles, decoyTag, tabWorkflow.hasDda(), tabWorkflow.hasDia(), tabWorkflow.hasGpfDia(), tabWorkflow.hasDiaLib(), cmdUmpire.isRun())) {
           return false;
         }
 
