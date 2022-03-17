@@ -18,6 +18,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -35,12 +36,16 @@ import static com.github.chhh.utils.PathUtils.testFilePath;
 public class CmdComet extends CmdBase {
     private static final Logger log = LoggerFactory.getLogger(CmdComet.class);
     public static final String NAME = "Comet";
+    private static final String[] COMET_DEPS = {"CometWrapper.dll"};
+    public static final String COMET_BIN_WIN = "comet.win64.exe";
+    public static final String COMET_BIN_LINUX = "comet.linux.exe";
+    public static final String COMET_BIN_MACOS = "comet.macos.exe";
+    private static final List<String> SUPPORTED_FORMATS = Arrays.asList("mzml", "mzxml");
+
 
     private static volatile FileFilter ff = null;
     private static volatile Predicate<File> supportedFilePredicate = null;
     private static final Path PATH_NONE = Paths.get("");
-    private static volatile Path pathThermo = PATH_NONE;
-    private static volatile Path pathBruker = PATH_NONE;
     private MsfraggerParams paramsDda;
     private MsfraggerParams paramsDia;
     private MsfraggerParams paramsGpfDia;
@@ -120,16 +125,32 @@ public class CmdComet extends CmdBase {
             JOptionPane.showMessageDialog(comp, msg + "\n", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
-    
-    public boolean configure(Component comp, boolean isDryRun, Path jarFragpipe, UsageTrigger binComet, String pathFasta, String cometParamsPath, int ramGb, List<InputLcmsFile> lcmsFiles, final String decoyTag, boolean hasDda, boolean hasDia, boolean hasGpfDia, boolean hasDiaLib, boolean isRunDiaU) {
+
+    private boolean checkDependencies(Path bin, List<String> deps, Component comp) {
+        List<String> missing = new ArrayList<>();
+        for (String dep : deps) {
+            Path pathDep = bin.getParent().resolve(dep);
+            if (!Files.exists(pathDep)) {
+                missing.add(dep);
+            }
+        }
+        if (missing.isEmpty())
+            return true;
+        showError("Comet is missing dependencies: " + String.join(", ", missing), comp);
+        return false;
+    }
+
+    public boolean configure(Component comp, boolean isDryRun, Path jarFragpipe, UsageTrigger binComet, MsfraggerParams params, String pathFasta, String cometParamsPath, int ramGb, List<InputLcmsFile> lcmsFiles, final String decoyTag, boolean hasDda, boolean hasDia, boolean hasGpfDia, boolean hasDiaLib, boolean isRunDiaU) {
 
         initPreConfig();
         if (StringUtils.isNullOrWhitespace(binComet.getBin())) {
             showError("Binary for running Comet can not be an empty string.", comp);
             return false;
         }
+        final Path pathBin = Paths.get(binComet.getBin());
+        checkDependencies(pathBin, Arrays.asList(COMET_DEPS), comp);
         if (testFilePath(binComet.getBin(), "") == null) {
-            showError("Binary for running Fragger not found or could not be run.\nNeither on PATH, nor in the working directory", comp);
+            showError("Binary for running Comet not found or could not be run.\nNeither on PATH, nor in the working directory", comp);
             return false;
         }
 
@@ -153,22 +174,22 @@ public class CmdComet extends CmdBase {
 
         // Search parameter file
         if (!Paths.get(cometParamsPath).toFile().exists()) {
-            showError("Comet can't process DIA data natively, enable DIA-Umpire", comp);
+            showError("Comet .params file doesn't exist: " + cometParamsPath, comp);
         }
 
         //params.setDatabaseName(pathFasta); // we will pass it as a parameter instead
-//        params.setDecoyPrefix(decoyTag);
-//        Path savedDdaParamsPath = (hasDia || hasGpfDia || hasDiaLib) ? wd.resolve("fragger_dda.params") : wd.resolve("fragger.params");
-//        Path savedDiaParamsPath = wd.resolve("fragger_dia.params");
-//        Path savedGpfDiaParamsPath = wd.resolve("fragger_gpfdia.params");
-//
-//        paramsDda = new MsfraggerParams(params);
-//        paramsDia = new MsfraggerParams(params);
-//        paramsGpfDia = new MsfraggerParams(params);
-//
-//        paramsDda.setDataType(0);
-//        adjustDiaParams(params, paramsDia, "DIA");
-//        adjustDiaParams(params, paramsGpfDia, "GPF-DIA");
+        params.setDecoyPrefix(decoyTag);
+        Path savedDdaParamsPath = (hasDia || hasGpfDia || hasDiaLib) ? wd.resolve("fragger_dda.params") : wd.resolve("fragger.params");
+        Path savedDiaParamsPath = wd.resolve("fragger_dia.params");
+        Path savedGpfDiaParamsPath = wd.resolve("fragger_gpfdia.params");
+
+        paramsDda = new MsfraggerParams(params);
+        paramsDia = new MsfraggerParams(params);
+        paramsGpfDia = new MsfraggerParams(params);
+
+        paramsDda.setDataType(0);
+        adjustDiaParams(params, paramsDia, "DIA");
+        adjustDiaParams(params, paramsGpfDia, "GPF-DIA");
 
         // 32k symbols splitting for regular command.
         // But for slicing it's all up to the python script.
@@ -238,6 +259,11 @@ public class CmdComet extends CmdBase {
                 }
                 final String cometPepxmlOut = cometParams.getProps().getProp("output_pepxmlfile", "1").value;
                 final boolean isOutputPepXml = "1".equals(cometPepxmlOut);
+                if (!isOutputPepXml) {
+                    showError("Set output_pepxmlfile=1 in comet.params file", comp);
+                    return false;
+                }
+
 
                 // move the pepxml files if the output directory is not the same as where
                 // the lcms files were

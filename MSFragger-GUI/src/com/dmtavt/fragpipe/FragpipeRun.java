@@ -62,6 +62,7 @@ import com.dmtavt.fragpipe.messages.MessageSaveCache;
 import com.dmtavt.fragpipe.messages.MessageSaveLog;
 import com.dmtavt.fragpipe.messages.MessageSaveUiState;
 import com.dmtavt.fragpipe.messages.MessageStartProcesses;
+import com.dmtavt.fragpipe.messages.NoteConfigComet;
 import com.dmtavt.fragpipe.messages.NoteConfigDatabase;
 import com.dmtavt.fragpipe.messages.NoteConfigMsfragger;
 import com.dmtavt.fragpipe.messages.NoteConfigPhilosopher;
@@ -875,12 +876,27 @@ public class FragpipeRun {
 
 
     // run Comet
+    final NoteConfigComet configComet;
+    try {
+      configComet = Fragpipe.getSticky(NoteConfigComet.class);
+    } catch (NoStickyException e) {
+      SwingUtils.showErrorDialog(parent, "Looks like Comet was not configured.\n" +
+              "Comet is required for this run.\n." +
+              "Please configure it on the first tab",
+              "No Comet config");
+      return false;
+    }
+    final UsageTrigger binComet = new UsageTrigger(configComet.bin, "Comet");
+
     final CometPanel cometPanel = Fragpipe.getStickyStrict(CometPanel.class);
     final CmdComet cmdComet = new CmdComet(cometPanel.isRun(), wd);
-
+    final MsfraggerParams msfraggerParamsForCometConfigure = new MsfraggerParams();
     addConfig.accept(cmdComet, () -> {
       if (cmdComet.isRun()) {
-        if (!cmdComet.configure(parent, isDryRun, jarPath, binComet, fastaFile, cometPanel.getParamsFilePath(), ramGb, sharedLcmsFiles, decoyTag, tabWorkflow.hasDda(), tabWorkflow.hasDia(), tabWorkflow.hasGpfDia(), tabWorkflow.hasDiaLib(), cmdUmpire.isRun())) {
+        if (!cmdComet.configure(parent, isDryRun, jarPath, binComet, msfraggerParamsForCometConfigure,
+                fastaFile, cometPanel.getParamsFilePath(), ramGb, sharedLcmsFiles, decoyTag,
+                tabWorkflow.hasDda(), tabWorkflow.hasDia(), tabWorkflow.hasGpfDia(), tabWorkflow.hasDiaLib(),
+                cmdUmpire.isRun())) {
           return false;
         }
 

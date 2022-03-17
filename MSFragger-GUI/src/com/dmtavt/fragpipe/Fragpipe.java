@@ -106,6 +106,7 @@ import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.TreeMap;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -673,7 +674,7 @@ public class Fragpipe extends JFrameHeadless {
     uiTabsSearchEnginesByTabName.put(uiTabComet.getTitle(), uiTabComet);
     uiTabsSearchEnginesByEnumName.put(NoteConfigSearchEngine.Type.Comet.name(), uiTabComet);
 
-    uiTabConfig = new UiTab("Config", tabConfig, "/com/dmtavt/fragpipe/icons/150-cogs.png", null, true);
+    uiTabConfig = new UiTab(TabConfig.TAB_NAME, tabConfig, "/com/dmtavt/fragpipe/icons/150-cogs.png", null, true);
     uiTabWorkflow = new UiTab(TAB_NAME_LCMS, tabWorkflow,
       "/com/dmtavt/fragpipe/icons/icon-workflow-16.png", null, false);
     uiTabUmpire = new UiTab("Umpire", tabUmpire,
@@ -836,7 +837,7 @@ public class Fragpipe extends JFrameHeadless {
 
   @Subscribe(sticky = true, threadMode = ThreadMode.MAIN_ORDERED)
   public void on(NoteFragpipeCache m) {
-    log.debug("Got NotePreviousUiState, updating UI");
+    log.debug("Got NoteFragpipeCache, updating UI");
     loadUi(m.propsUiState, true, true);
   }
 

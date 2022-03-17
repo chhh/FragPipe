@@ -339,7 +339,6 @@ public class PathUtils {
      * @return  Null if no working combo has been found.
      */
     public static String testBinaryPath(String program, String... paths) {
-        
         // look in provided paths
         for (String path : paths) {
             if (StringUtils.isNullOrWhitespace(path))

@@ -1295,7 +1295,7 @@ public class CometPanel extends JPanelBase {
     @Subscribe(sticky = true, threadMode = ThreadMode.MAIN_ORDERED)
     public void on(NoteConfigSearchEngine m) {
         final boolean isRun = m.type == NoteConfigSearchEngine.Type.Comet;
-        log.debug("Setting Fragger isRun: {}", isRun);
+        log.debug("Setting Comet isRun: {}", isRun);
         checkRun.setSelected(isRun);
         isRunBackupVar = isRun;
         updateEnabledStatus(this, isRun && m.isValid());
