@@ -66,6 +66,7 @@ import com.dmtavt.fragpipe.messages.NoteConfigComet;
 import com.dmtavt.fragpipe.messages.NoteConfigDatabase;
 import com.dmtavt.fragpipe.messages.NoteConfigMsfragger;
 import com.dmtavt.fragpipe.messages.NoteConfigPhilosopher;
+import com.dmtavt.fragpipe.messages.NoteConfigSearchEngine;
 import com.dmtavt.fragpipe.messages.NoteConfigSpeclibgen;
 import com.dmtavt.fragpipe.params.ThisAppProps;
 import com.dmtavt.fragpipe.process.ProcessDescription;
@@ -833,6 +834,7 @@ public class FragpipeRun {
 
     // run MsFragger
     final TabDatabase tabDatabase = Fragpipe.getStickyStrict(TabDatabase.class);
+    final NoteConfigSearchEngine searchEngine = Fragpipe.getStickyStrict(NoteConfigSearchEngine.class);
     final String decoyTag = tabDatabase.getDecoyTag();
     MsfraggerParams p = tabMsf.getParams();
     final boolean isRunFragger = tabMsf.isRun();
@@ -841,9 +843,13 @@ public class FragpipeRun {
     final Map<InputLcmsFile, List<Path>> sharedPepxmlFilesFromMsfragger = new TreeMap<>();
     final TreeMap<InputLcmsFile, List<Path>> sharedPepxmlFiles = new TreeMap<>();
 
+
+
     addConfig.accept(cmdMsfragger, () -> {
       if (cmdMsfragger.isRun()) {
-        if (!cmdMsfragger.configure(parent, isDryRun, jarPath, binMsfragger, fastaFile, tabMsf.getParams(), tabMsf.getNumDbSlices(), ramGb, sharedLcmsFiles, decoyTag, tabWorkflow.hasDda(), tabWorkflow.hasDia(), tabWorkflow.hasGpfDia(), tabWorkflow.hasDiaLib(), cmdUmpire.isRun())) {
+        if (!cmdMsfragger.configure(parent, isDryRun, jarPath, binMsfragger, fastaFile, tabMsf.getParams(),
+                tabMsf.getNumDbSlices(), ramGb, sharedLcmsFiles, decoyTag,
+                tabWorkflow.hasDda(), tabWorkflow.hasDia(), tabWorkflow.hasGpfDia(), tabWorkflow.hasDiaLib(), cmdUmpire.isRun())) {
           return false;
         }
 
@@ -866,11 +872,11 @@ public class FragpipeRun {
           }
         }
       }
-
-      Map<InputLcmsFile, List<Path>> outputs = cmdMsfragger.outputs(sharedLcmsFiles, tabMsf.getOutputFileExt(), wd);
-      MapUtils.refill(sharedPepxmlFilesFromMsfragger, outputs);
-      MapUtils.refill(sharedPepxmlFiles, outputs);
-
+      if (searchEngine.type == NoteConfigSearchEngine.Type.MsFragger) {
+        Map<InputLcmsFile, List<Path>> outputs = cmdMsfragger.outputs(sharedLcmsFiles, tabMsf.getOutputFileExt(), wd);
+        MapUtils.refill(sharedPepxmlFilesFromMsfragger, outputs);
+        MapUtils.refill(sharedPepxmlFiles, outputs);
+      }
       return true;
     });
 
@@ -899,31 +905,14 @@ public class FragpipeRun {
                 cmdUmpire.isRun())) {
           return false;
         }
-
-//        String warn = Fragpipe.propsVarGet(ThisAppProps.PROP_MGF_WARNING, Boolean.TRUE.toString());
-//        if (Boolean.parseBoolean(warn)) {
-//          for (InputLcmsFile f : sharedLcmsFiles) {
-//            if (f.getPath().toString().toLowerCase().endsWith(".mgf")) {
-//              JCheckBox checkbox = new JCheckBox("Do not show this message again.");
-//              String msg = "The list of input files contains MGF entries.\n"
-//                      + "MSFragger has limited MGF support (ProteoWizard output is OK).\n"
-//                      + "The search might fail unexpectedly with errors.\n"
-//                      + "Please consider converting files to mzML/mzXML with ProteoWizard.";
-//              Object[] params = {msg, checkbox};
-//              JOptionPane.showMessageDialog(parent, params, "Warning", JOptionPane.WARNING_MESSAGE);
-//              if (checkbox.isSelected()) {
-//                Fragpipe.propsVarSet(ThisAppProps.PROP_MGF_WARNING, Boolean.FALSE.toString());
-//              }
-//              break;
-//            }
-//          }
-//        }
       }
 
-      // TODO: this actually depends on the parameter file
-      Map<InputLcmsFile, List<Path>> outputs = cmdComet.outputs(sharedLcmsFiles, cmdComet.getOutputFileExt(), wd);
-      MapUtils.refill(sharedPepxmlFilesFromMsfragger, outputs);
-      MapUtils.refill(sharedPepxmlFiles, outputs);
+      if (searchEngine.type == NoteConfigSearchEngine.Type.Comet) {
+        // TODO: this actually depends on the parameter file
+        Map<InputLcmsFile, List<Path>> outputs = cmdComet.outputs(sharedLcmsFiles, cmdComet.getOutputFileExt(), wd);
+        MapUtils.refill(sharedPepxmlFilesFromMsfragger, outputs);
+        MapUtils.refill(sharedPepxmlFiles, outputs);
+      }
 
       return true;
     });
@@ -1007,7 +996,7 @@ public class FragpipeRun {
     addConfig.accept(cmdPercolator, () -> {
       if (cmdPercolator.isRun()) {
         final String percolatorCmd = percolatorPanel.getCmdOpts();
-        if (!cmdPercolator.configure(parent, jarPath, percolatorCmd, isCombinedPepxml_percolator, sharedPepxmlFilesBeforePeptideValidation, crystalcPanel.isRun(), percolatorPanel.getMinProb())) {
+        if (!cmdPercolator.configure(parent, jarPath, percolatorCmd, decoyTag, isCombinedPepxml_percolator, sharedPepxmlFilesBeforePeptideValidation, crystalcPanel.isRun(), percolatorPanel.getMinProb())) {
           return false;
         }
       }

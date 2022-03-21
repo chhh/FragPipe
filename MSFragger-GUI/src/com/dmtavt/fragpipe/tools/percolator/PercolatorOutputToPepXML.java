@@ -120,13 +120,18 @@ public class PercolatorOutputToPepXML {
                     return Integer.parseInt(matcher.group(1));
             }
         } catch (IOException e) {
-            System.err.println("Cannot find output_report_topN parameter from " + path.toAbsolutePath());
-            System.exit(1);
-            return -1;
+            System.err.printf("Error while searching for output_report_topN in: [%s]\n\n", path.toAbsolutePath());
+            System.err.println(e.getMessage());
+//            System.exit(1);
+//            return -1;
         }
-        System.err.println("Cannot find output_report_topN parameter from " + path.toAbsolutePath());
-        System.exit(1);
-        return -1;
+        System.err.printf("Didn't find 'output_report_topN' parameter in: [%s]", path.toAbsolutePath());
+//        System.exit(1);
+//        return -1;
+        //TODO: in case of Comet we can get that from the comet.params file ('num_output_lines' option)
+        int outputTopN = 1;
+        System.err.printf("Using 'output_report_topN'=%d", outputTopN);
+        return outputTopN;
     }
 
     private static StringBuilder handle_search_hit(final List<String> searchHit, final NttNmc nttNmc, final PepScore pepScore, final int oldRank, final int newRank) {
@@ -247,7 +252,8 @@ public class PercolatorOutputToPepXML {
         return sb.toString();
     }
 
-    public static void percolatorToPepXML(final Path pin, final String basename, final Path percolatorTargetPsms, final Path percolatorDecoyPsms, final Path outBasename, final String DIA_DDA, final double minProb) {
+    public static void percolatorToPepXML(final Path pin, final String basename, final Path percolatorTargetPsms,
+                                          final Path percolatorDecoyPsms, final Path outBasename, final String DIA_DDA, final double minProb) {
         // get max rank from pin
         final boolean is_DIA = DIA_DDA.equals("DIA");
         final int max_rank = get_max_rank(basename, is_DIA);
@@ -257,8 +263,6 @@ public class PercolatorOutputToPepXML {
         }
 
         final Map<String, NttNmc[]> pinSpectrumRankNttNmc = new HashMap<>();
-        final Map<String, PepScore[]> pinSpectrumRankPepScore = new HashMap<>();
-
         try (final BufferedReader brtsv = Files.newBufferedReader(pin)) {
             final String pin_header = brtsv.readLine();
             final List<String> colnames = Arrays.asList(pin_header.split("\t"));
@@ -280,6 +284,7 @@ public class PercolatorOutputToPepXML {
             throw new UncheckedIOException(e);
         }
 
+        final Map<String, PepScore[]> pinSpectrumRankPepScore = new HashMap<>();
         for (final Path tsv : new Path[]{percolatorTargetPsms, percolatorDecoyPsms}) {
             try (final BufferedReader brtsv = Files.newBufferedReader(tsv)) {
                 final String percolator_header = brtsv.readLine();
@@ -309,10 +314,12 @@ public class PercolatorOutputToPepXML {
         }
 
         for (int rank = 1; rank <= (is_DIA ? max_rank : 1); ++rank) {
-            final Path output_rank = is_DIA ? Paths.get(outBasename + "_rank" + rank + ".pep.xml") :
-                    Paths.get(outBasename + ".pep.xml");
-            final Path pepxml_rank = is_DIA ? Paths.get(basename + "_rank" + rank + ".pepXML") :
-                    Paths.get(basename + ".pepXML");
+            final Path output_rank = is_DIA
+                    ? Paths.get(outBasename + "_rank" + rank + ".pep.xml")
+                    : Paths.get(outBasename + ".pep.xml");
+            final Path pepxml_rank = is_DIA
+                    ? Paths.get(basename + "_rank" + rank + ".pepXML")
+                    : Paths.get(basename + ".pepXML");
             // fixme: cannot parse XML line-by-line because line break is allowed everywhere, including within an attribute, in a XML. Need to parse it using JDOM or JAXB
             try (final BufferedReader brpepxml = Files.newBufferedReader(pepxml_rank);
                  final BufferedWriter out = Files.newBufferedWriter(output_rank)) {

@@ -44,6 +44,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import com.github.chhh.utils.PathUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.jooq.lambda.Seq;
 import org.slf4j.Logger;
@@ -113,7 +115,7 @@ public class CmdPercolator extends CmdBase {
   /**
    * @param pepxmlFiles Either pepxml files after search or after Crystal-C.
    */
-  public boolean configure(Component comp, Path jarFragpipe, String percolatorCmd, boolean combine, Map<InputLcmsFile, List<Path>> pepxmlFiles, boolean hasCrystalC, double minProb) {
+  public boolean configure(Component comp, Path jarFragpipe, String percolatorCmd, String decoyPrefix, boolean combine, Map<InputLcmsFile, List<Path>> pepxmlFiles, boolean hasCrystalC, double minProb) {
     PeptideProphetParams percolatorParams = new PeptideProphetParams();
     percolatorParams.setCmdLineParams(percolatorCmd);
 
@@ -133,7 +135,8 @@ public class CmdPercolator extends CmdBase {
     for (Entry<InputLcmsFile, List<Path>> e : pepxmlFiles.entrySet()) {
       for (Path pepxmlPath : e.getValue()) {
         final Path pepxmlDir = pepxmlPath.getParent();
-        final String nameWithoutExt = FilenameUtils.removeExtension(pepxmlPath.getFileName().toString());
+        //final String nameWithoutExt = FilenameUtils.removeExtension(pepxmlPath.getFileName().toString());
+        final String nameWithoutExt = PathUtils.removeExtension(pepxmlPath.getFileName().toString(), 2, 10);
         final String basename = remove_rank_suffix(nameWithoutExt);
         if(!basenames.add(basename))
           continue;
@@ -154,6 +157,8 @@ public class CmdPercolator extends CmdBase {
         TabWorkflow tabWorkflow = Fragpipe.getStickyStrict(TabWorkflow.class);
         cmdPp.add("--num-threads");
         cmdPp.add("" + tabWorkflow.getThreads());
+        cmdPp.add("--protein-decoy-pattern");
+        cmdPp.add(decoyPrefix);
         cmdPp.add("--results-psms");
         cmdPp.add(strippedBaseName + "_percolator_target_psms.tsv");
         cmdPp.add("--decoy-results-psms");

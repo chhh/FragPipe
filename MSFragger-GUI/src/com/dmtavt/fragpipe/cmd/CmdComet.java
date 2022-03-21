@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -140,7 +141,9 @@ public class CmdComet extends CmdBase {
         return false;
     }
 
-    public boolean configure(Component comp, boolean isDryRun, Path jarFragpipe, UsageTrigger binComet, MsfraggerParams params, String pathFasta, String cometParamsPath, int ramGb, List<InputLcmsFile> lcmsFiles, final String decoyTag, boolean hasDda, boolean hasDia, boolean hasGpfDia, boolean hasDiaLib, boolean isRunDiaU) {
+    public boolean configure(Component comp, boolean isDryRun, Path jarFragpipe, UsageTrigger binComet, MsfraggerParams params,
+                             String pathFasta, String cometParamsPath, int ramGb, List<InputLcmsFile> lcmsFiles,
+                             final String decoyTag, boolean hasDda, boolean hasDia, boolean hasGpfDia, boolean hasDiaLib, boolean isRunDiaU) {
 
         initPreConfig();
         if (StringUtils.isNullOrWhitespace(binComet.getBin())) {
@@ -173,8 +176,16 @@ public class CmdComet extends CmdBase {
         }
 
         // Search parameter file
-        if (!Paths.get(cometParamsPath).toFile().exists()) {
+        final Path pathParams = Paths.get(cometParamsPath).toAbsolutePath();
+        if (!pathParams.toFile().exists()) {
             showError("Comet .params file doesn't exist: " + cometParamsPath, comp);
+            return false;
+        }
+
+        if (pathParams.toString().contains(" ")) {
+            showError("Comet .params file path contains spaces.\n" +
+                    "Please move it to a location without spaces in the path.", comp);
+            return false;
         }
 
         //params.setDatabaseName(pathFasta); // we will pass it as a parameter instead
@@ -198,9 +209,9 @@ public class CmdComet extends CmdBase {
 
         StringBuilder sb = new StringBuilder();
 
-        Map<InputLcmsFile, List<Path>> mapLcmsToPepxml = outputs(lcmsFiles, "pepXML", wd);
+        Map<InputLcmsFile, List<Path>> mapLcmsToPepxml = outputs(lcmsFiles, "pep.xml", wd);
 //        Map<InputLcmsFile, List<Path>> mapLcmsToTsv = outputs(lcmsFiles, "tsv", wd);
-//        Map<InputLcmsFile, List<Path>> mapLcmsToPin = outputs(lcmsFiles, "pin", wd);
+        Map<InputLcmsFile, List<Path>> mapLcmsToPin = outputs(lcmsFiles, "pin", wd);
 
 
         Map<String, List<InputLcmsFile>> t = new TreeMap<>();
@@ -213,11 +224,41 @@ public class CmdComet extends CmdBase {
             t.computeIfAbsent(key, k -> new ArrayList<>()).add(inputLcmsFile);
         }
 
+        // read comet params file
+        CometParams cometParams = new CometParams();
+        Path pCometParams = Paths.get(cometParamsPath);
+        try {
+            cometParams.load(Files.newInputStream(pCometParams), true);
+        } catch (FileNotFoundException ex) {
+            showError("Comet params file does not exist: " + cometParamsPath, comp);
+            return false;
+        } catch (IOException ex) {
+            showError("Could not read Comet params file", comp);
+            return false;
+        }
+        final String cometPepxmlOut = cometParams.getProps().getProp("output_pepxmlfile", "1").value;
+        final boolean isOutputPepXml = "1".equals(cometPepxmlOut);
+        if (!isOutputPepXml) {
+            showError("Set output_pepxmlfile=1 in comet.params file", comp);
+            return false;
+        }
+        final String cometPinOut = cometParams.getProps().getProp("output_percolatorfile", "1").value;
+        final boolean isOutputPin = "1".equals(cometPinOut);
+        if (!isOutputPepXml) {
+            showError("Set output_percolatorfile=1 in comet.params file", comp);
+            return false;
+        }
+        // copy the comet param file to the output dir
+        List<ProcessBuilder> pbCopyParams = ToolingUtils.pbsCopyFiles(jarFragpipe, wd, Collections.singletonList(pCometParams));
+        pbis.addAll(PbiBuilder.from(pbCopyParams, "Comet copy params file"));
+
+
         for (Map.Entry<String, List<InputLcmsFile>> e : t.entrySet()) {
             int fileIndex = 0;
             while (fileIndex < e.getValue().size()) {
                 List<String> cmd = new ArrayList<>();
                 cmd.add(binComet.useBin());
+                cmd.add("-P" + cometParamsPath);
 
                 // check if the command length is ok so far
                 sb.append(String.join(" ", cmd));
@@ -247,48 +288,43 @@ public class CmdComet extends CmdBase {
                 pbis.add(PbiBuilder.from(pb));
                 sb.setLength(0);
 
-                CometParams cometParams = new CometParams();
-                try {
-                    cometParams.load(new FileInputStream(cometParamsPath), true);
-                } catch (FileNotFoundException ex) {
-                    showError("Comet params file does not exist: " + cometParamsPath, comp);
-                    return false;
-                } catch (IOException ex) {
-                    showError("Could not read Comet params file", comp);
-                    return false;
-                }
-                final String cometPepxmlOut = cometParams.getProps().getProp("output_pepxmlfile", "1").value;
-                final boolean isOutputPepXml = "1".equals(cometPepxmlOut);
-                if (!isOutputPepXml) {
-                    showError("Set output_pepxmlfile=1 in comet.params file", comp);
-                    return false;
-                }
-
 
                 // move the pepxml files if the output directory is not the same as where
                 // the lcms files were
-                for (InputLcmsFile f : addedLcmsFiles) {
-                    if (isOutputPepXml) {
-                        List<Path> pepxmlWhereItShouldBeList = mapLcmsToPepxml.get(f);
-                        if (pepxmlWhereItShouldBeList == null || pepxmlWhereItShouldBeList.isEmpty())
-                            throw new IllegalStateException("LCMS file mapped to no pepxml file");
-                        for (Path pepxmlWhereItShouldBe : pepxmlWhereItShouldBeList) {
-                            String pepxmlFn = pepxmlWhereItShouldBe.getFileName().toString();
-                            Path pepxmlAsCreatedByFragger = f.getPath().getParent().resolve(pepxmlFn);
-                            if (!pepxmlAsCreatedByFragger.equals(pepxmlWhereItShouldBe)) {
-                                List<ProcessBuilder> pbsMove = ToolingUtils
-                                        .pbsMoveFiles(jarFragpipe, pepxmlWhereItShouldBe.getParent(), true,
-                                                Collections.singletonList(pepxmlAsCreatedByFragger));
-                                pbis.addAll(PbiBuilder.from(pbsMove, NAME + " move pepxml"));
-                            }
-                        }
-                    }
+                for (InputLcmsFile lcms : addedLcmsFiles) {
+                    if (isOutputPepXml)
+                        createMoveCommands(mapLcmsToPepxml, lcms, "pepxml", jarFragpipe, pbis);
+                    if (isOutputPin)
+                        createMoveCommands(mapLcmsToPin, lcms, "pin", jarFragpipe, pbis);
                 }
             }
         }
 
         isConfigured = true;
         return true;
+    }
+
+    private void createMoveCommands(Map<InputLcmsFile, List<Path>> mapLcmsToPepxml, InputLcmsFile lcms, String fileTypeDesc,
+                                    Path jarFragpipe, List<ProcessBuilderInfo> builders) {
+        List<Path> expectedTargetPaths = mapLcmsToPepxml.get(lcms);
+        if (expectedTargetPaths == null || expectedTargetPaths.isEmpty())
+            throw new IllegalStateException(String.format("LCMS file mapped to no %s file", fileTypeDesc));
+        Map<Path, Path> copyFromTo = new LinkedHashMap<>();
+        for (Path expectedTargetPath : expectedTargetPaths) {
+            final String sourceFn = expectedTargetPath.getFileName().toString();
+            final String targetFn = sourceFn.replaceFirst("\\.pep\\.xml$", ".pepXML");
+            final Path targetDir = expectedTargetPath.getParent();
+            final Path sourcePath = lcms.getPath().getParent().resolve(sourceFn);
+            final Path targetPath = targetDir.resolve(targetFn);
+            if (sourcePath.equals(targetPath))
+                continue;
+            copyFromTo.put(sourcePath, targetPath);
+        }
+
+        List<ProcessBuilder> pbsMove = ToolingUtils
+                .pbsCopyMoveFiles(jarFragpipe, ToolingUtils.Op.MOVE, true, copyFromTo);
+        // Comet move pep.xml, Comet move pin
+        builders.addAll(PbiBuilder.from(pbsMove, String.format("%s move %s", NAME, fileTypeDesc)));
     }
 
     private void adjustDiaParams(MsfraggerParams params, MsfraggerParams paramsNew, String dataType) {
@@ -327,7 +363,7 @@ public class CmdComet extends CmdBase {
     }
 
     public String getOutputFileExt() {
-        return "pepXML";
+        return "pep.xml";
     }
 
 
