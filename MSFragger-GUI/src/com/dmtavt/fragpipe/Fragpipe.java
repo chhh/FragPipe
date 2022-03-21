@@ -31,7 +31,9 @@ import com.dmtavt.fragpipe.cmd.ToolingUtils;
 import com.dmtavt.fragpipe.exceptions.NoStickyException;
 import com.dmtavt.fragpipe.exceptions.ValidationException;
 import com.dmtavt.fragpipe.messages.MessageClearCache;
+import com.dmtavt.fragpipe.messages.MessageDoneCreatingUi;
 import com.dmtavt.fragpipe.messages.MessageExportLog;
+import com.dmtavt.fragpipe.messages.MessageLcmsFilesAdded;
 import com.dmtavt.fragpipe.messages.MessageLoadUi;
 import com.dmtavt.fragpipe.messages.MessageManifestLoad;
 import com.dmtavt.fragpipe.messages.MessageOpenInExplorer;
@@ -97,6 +99,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -160,6 +163,7 @@ public class Fragpipe extends JFrameHeadless {
 
   public static final String UI_STATE_CACHE_FN = "fragpipe-ui.cache";
   private static final Logger log = LoggerFactory.getLogger(Fragpipe.class);
+  private static final FragpipeDebug debug = new FragpipeDebug();
   public static final Color COLOR_GREEN = new Color(105, 193, 38);
   public static final Color COLOR_GREEN_DARKER = new Color(104, 184, 55);
   public static final Color COLOR_GREEN_DARKEST = new Color(82, 140, 26);
@@ -553,6 +557,8 @@ public class Fragpipe extends JFrameHeadless {
       Rectangle screen = ScreenUtils.getScreenTotalArea(fp);
       fp.setSize(fp.getWidth(), Math.min((int)(screen.height * 0.8), fp.getHeight()));
       SwingUtils.centerFrame(fp);
+
+      Bus.post(new MessageDoneCreatingUi());
     });
   }
 
