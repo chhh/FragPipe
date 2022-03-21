@@ -32,6 +32,7 @@ import java.awt.Component;
 import java.awt.Image;
 import java.awt.Toolkit;
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -69,7 +70,7 @@ public class ToolingUtils {
     return workingDir.resolve(combinedProtFn).normalize().toAbsolutePath();
   }
 
-  private enum Op {COPY, MOVE, DELETE}
+  public enum Op {COPY, MOVE, DELETE}
 
   /**
    * @param jarFragpipe Use {@link JarUtils#getCurrentJarUri()} to get that from the current Jar.
@@ -134,6 +135,48 @@ public class ToolingUtils {
       cmd.add(file.toAbsolutePath().normalize().toString());
       if (dest != null)
         cmd.add(dest.resolve(file.getFileName()).toString());
+      ProcessBuilder pb = new ProcessBuilder(cmd);
+      pbs.add(pb);
+    }
+    return pbs;
+  }
+
+  public static List<ProcessBuilder> pbsCopyMoveFiles(Path jarFragpipe, Op operation,
+                                                       boolean ignoreMissingFiles, Map<Path, Path> files) {
+    if (jarFragpipe == null) {
+      throw new IllegalArgumentException("jar can't be null");
+    }
+
+    List<ProcessBuilder> pbs = new LinkedList<>();
+    for (Map.Entry<Path, Path> sourceDest : files.entrySet()) {
+      final Path source = sourceDest.getKey();
+      final Path dest = sourceDest.getValue();
+      if (source.equals(dest)) {
+        continue;
+      }
+      List<String> cmd = new ArrayList<>();
+      cmd.add(Fragpipe.getBinJava());
+      cmd.add("-cp");
+      final String commons_io_jar_path = org.apache.commons.io.FileUtils.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+      cmd.add(jarFragpipe.toAbsolutePath() +
+              (operation == Op.MOVE ?
+                      File.pathSeparator + commons_io_jar_path :
+                      ""));
+      switch (operation) {
+        case COPY:
+          cmd.add(FileCopy.class.getCanonicalName());
+          break;
+        case MOVE:
+          cmd.add(FileMove.class.getCanonicalName());
+          break;
+        default:
+          throw new IllegalStateException("Unknown enum value: " + operation.toString());
+      }
+      if (ignoreMissingFiles) {
+        cmd.add(FileMove.NO_ERR);
+      }
+      cmd.add(source.toAbsolutePath().normalize().toString());
+      cmd.add(dest.toAbsolutePath().normalize().toString());
       ProcessBuilder pb = new ProcessBuilder(cmd);
       pbs.add(pb);
     }
