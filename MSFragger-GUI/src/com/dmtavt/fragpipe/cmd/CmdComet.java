@@ -14,16 +14,18 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
 import java.awt.*;
+import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,6 +33,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 
 import static com.github.chhh.utils.PathUtils.testFilePath;
 
@@ -176,15 +179,36 @@ public class CmdComet extends CmdBase {
         }
 
         // Search parameter file
-        final Path pathParams = Paths.get(cometParamsPath).toAbsolutePath();
-        if (!pathParams.toFile().exists()) {
+        final Path pathParamsOrig = Paths.get(cometParamsPath).toAbsolutePath();
+        if (!pathParamsOrig.toFile().exists()) {
             showError("Comet .params file doesn't exist: " + cometParamsPath, comp);
             return false;
         }
 
-        if (pathParams.toString().contains(" ")) {
+
+        // copy the comet param file to the output dir
+//        List<ProcessBuilder> pbCopyParams = ToolingUtils.pbsCopyFiles(jarFragpipe, wd, Collections.singletonList(pCometParams));
+//        pbis.addAll(PbiBuilder.from(pbCopyParams, "Comet copy params file"));
+        final Path pathParamsActual = wd.resolve(pathParamsOrig.getFileName());
+        if (!isDryRun) {
+            // copy the params file and update contents to match search params
+            try {
+                Files.copy(pathParamsOrig, pathParamsActual, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                showError("Could not copy Comet params file to work dir:\n" + pathParamsActual, comp);
+                return false;
+            }
+            try {
+                updateCometParamsFile(pathParamsActual, decoyTag);
+            } catch (IOException e) {
+                showError("Error rewriting Comet params file in work dir:\n" + pathParamsActual, comp);
+                return false;
+            }
+        }
+
+        if (pathParamsActual.toString().contains(" ")) {
             showError("Comet .params file path contains spaces.\n" +
-                    "Please move it to a location without spaces in the path.", comp);
+                    "Please change output directory to one without spaces.", comp);
             return false;
         }
 
@@ -226,11 +250,10 @@ public class CmdComet extends CmdBase {
 
         // read comet params file
         CometParams cometParams = new CometParams();
-        Path pCometParams = Paths.get(cometParamsPath);
         try {
-            cometParams.load(Files.newInputStream(pCometParams), true);
+            cometParams.load(Files.newInputStream(pathParamsActual), true);
         } catch (FileNotFoundException ex) {
-            showError("Comet params file does not exist: " + cometParamsPath, comp);
+            showError("Comet params file does not exist: " + pathParamsActual, comp);
             return false;
         } catch (IOException ex) {
             showError("Could not read Comet params file", comp);
@@ -248,17 +271,13 @@ public class CmdComet extends CmdBase {
             showError("Set output_percolatorfile=1 in comet.params file", comp);
             return false;
         }
-        // copy the comet param file to the output dir
-        List<ProcessBuilder> pbCopyParams = ToolingUtils.pbsCopyFiles(jarFragpipe, wd, Collections.singletonList(pCometParams));
-        pbis.addAll(PbiBuilder.from(pbCopyParams, "Comet copy params file"));
-
 
         for (Map.Entry<String, List<InputLcmsFile>> e : t.entrySet()) {
             int fileIndex = 0;
             while (fileIndex < e.getValue().size()) {
                 List<String> cmd = new ArrayList<>();
                 cmd.add(binComet.useBin());
-                cmd.add("-P" + cometParamsPath);
+                cmd.add("-P" + pathParamsActual);
 
                 // check if the command length is ok so far
                 sb.append(String.join(" ", cmd));
@@ -302,6 +321,41 @@ public class CmdComet extends CmdBase {
 
         isConfigured = true;
         return true;
+    }
+
+    private void updateCometParamsFile(Path pathParams, String decoyTag) throws IOException {
+        List<String> lines = Files.readAllLines(pathParams);
+        List<String> updated = new ArrayList<>();
+        final Pattern reDecoyPrefix = Pattern.compile("^\\s*(\\w+)\\s*=\\s*([^#\\s]+)(.*)");
+        final Pattern reEq = Pattern.compile("=");
+        final Map<String, String> mapUpdatedValues = new HashMap<>();
+        mapUpdatedValues.put("decoy_prefix", decoyTag);
+        for (String line : lines) {
+            final int commentStart = line.indexOf('#');
+            final String content = commentStart > 0 ? line.substring(0, commentStart) : line;
+            final String comment = commentStart > 0 ? line.substring(commentStart) : "";
+            String[] split = reEq.split(content);
+            if (split.length != 2) {
+                updated.add(line);
+                continue;
+            }
+            final String k = split[0].trim();
+            String vUpdate  = mapUpdatedValues.get(k);
+            if (vUpdate == null) {
+                updated.add(line);
+                continue;
+            }
+            updated.add(String.format("%s = %s %s", k, vUpdate, comment));
+        }
+
+        final Path writeTo = pathParams;
+        try (BufferedWriter f = Files.newBufferedWriter(writeTo, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)) {
+            for (String s : updated) {
+                f.write(s);
+                f.write("\n");
+            }
+            f.flush();
+        }
     }
 
     private void createMoveCommands(Map<InputLcmsFile, List<Path>> mapLcmsToPepxml, InputLcmsFile lcms, String fileTypeDesc,
