@@ -141,7 +141,6 @@ import com.mxgraph.util.mxEvent;
 import com.mxgraph.view.mxGraph;
 import org.apache.commons.codec.Charsets;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.checkerframework.checker.units.qual.C;
 import org.jgrapht.Graph;
 import org.jgrapht.ext.JGraphXAdapter2;
 import org.jgrapht.graph.DirectedAcyclicGraph;
@@ -1508,8 +1507,7 @@ public class FragpipeRun {
 
     // all graphs are constructed
     if (Version.isDevBuild()) {
-      // org.jgrapht.nio.graphml.GraphMLExporter
-
+      // TODO: Disable graph drawing here (draw graph)
       final JGraphXAdapter2<CmdBase, DefEdge> adapter = new JGraphXAdapter2<>(graphOrder);
 
       mxGraph mxGraph = new mxGraph(adapter.getModel()) {
@@ -1523,7 +1521,6 @@ public class FragpipeRun {
               //return StringUtils.isBlank(relWd) ? String.format("%s", value.toString()) : String.format("%s\n[%s]", value.toString(), relWd);
               return String.format("%s", cmd.getTitle());
             }
-//            log.info("Object cell mxCell getValue is type: {}", value.getClass().getCanonicalName());
           }
 
           return super.convertValueToString(cell);

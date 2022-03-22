@@ -18,6 +18,7 @@ package com.github.chhh.utils;
 
 import com.github.chhh.utils.okio.SourceMarker;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
@@ -27,14 +28,20 @@ import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.Objects;
+
 import okio.Buffer;
 import okio.BufferedSource;
 import okio.ByteString;
@@ -52,6 +59,14 @@ public class IOUtils {
   private static final Logger log = LoggerFactory.getLogger(IOUtils.class);
 
   private IOUtils() {
+  }
+
+  public static Path getResource(Class<?> clazz, String resourceLocation, String resourceName)
+          throws Exception {
+    ClassLoader cl = clazz.getClassLoader();
+    final URI uri = Objects.requireNonNull(cl.getResource(resourceLocation)).toURI();
+    final Path path = Paths.get(uri).toAbsolutePath();
+    return Paths.get(path.toString(), resourceName).toAbsolutePath();
   }
 
   /**
@@ -258,7 +273,21 @@ public class IOUtils {
     }
   }
 
-  public static class Tracker {
+    /**
+     * Creates or rewrites a file.
+     */
+    public static void updateFileContent(Path path, List<String> newContent) throws IOException {
+        final Path writeTo = path;
+        try (BufferedWriter f = Files.newBufferedWriter(writeTo, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+            for (String s : newContent) {
+                f.write(s);
+                f.write("\n");
+            }
+            f.flush();
+        }
+    }
+
+    public static class Tracker {
 
     public byte[] seqLo;
     public byte[] seqMi;

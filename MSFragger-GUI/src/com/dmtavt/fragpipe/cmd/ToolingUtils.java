@@ -20,8 +20,10 @@ package com.dmtavt.fragpipe.cmd;
 import static com.github.chhh.utils.PathUtils.testBinaryPath;
 
 import com.dmtavt.fragpipe.Fragpipe;
+import com.dmtavt.fragpipe.FragpipeLocations;
 import com.dmtavt.fragpipe.api.InputLcmsFile;
 import com.dmtavt.fragpipe.params.ThisAppProps;
+import com.dmtavt.fragpipe.tools.comet.CometPinUpdateDecoyLabel;
 import com.github.chhh.utils.FileCopy;
 import com.github.chhh.utils.FileDelete;
 import com.github.chhh.utils.FileMove;
@@ -57,6 +59,34 @@ public class ToolingUtils {
   public static final String SMILE_CORE_JAR = "smile-core-2.6.0.jar";
   public static final String SMILE_MATH_JAR = "smile-math-2.6.0.jar";
   public static final String JFREECHART_JAR = "jfreechart-1.5.3.jar";
+
+  /**
+   * Create a stub for a command that uses an executable class (with main() method) from Fragpipe jar.
+   * Typical usage will include appending full qualified class name to the command and then appending
+   * parameters one by one, like so:
+   * {@code
+   *   <br/>cmd.add(CometPinUpdateDecoyLabel.class.getCanonicalName());
+   *   <br/>cmd.add("rev_");
+   *   <br/>
+   * }
+   * And then creating a ProcessBuilder from that command list.
+   */
+  public static List<String> cmdStubForJar(Path jarFragpipe) {
+    if (jarFragpipe == null) {
+      throw new IllegalArgumentException("jar can't be null");
+    }
+    final List<String> cmd = new ArrayList<>();
+    cmd.add(Fragpipe.getBinJava());
+    cmd.add("-cp");
+    Path root = FragpipeLocations.get().getDirFragpipeRoot();
+    String libsDir = root.resolve("lib") + "/*";
+    if (Files.isDirectory(jarFragpipe)) {
+      libsDir = jarFragpipe.getParent().getParent().getParent().getParent().resolve("build/install/fragpipe/lib") + "/*";
+      log.warn("Dev message: Looks like FragPipe was run from IDE, changing libs directory to: {}", libsDir);
+    }
+    cmd.add(libsDir);
+    return cmd;
+  }
 
   /**
    * @return Full absolute normalized path to the output combined protein file.

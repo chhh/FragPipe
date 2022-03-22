@@ -3,13 +3,14 @@ package com.dmtavt.fragpipe.cmd;
 import com.dmtavt.fragpipe.Fragpipe;
 import com.dmtavt.fragpipe.api.Bus;
 import com.dmtavt.fragpipe.api.InputLcmsFile;
-import com.dmtavt.fragpipe.messages.NoteConfigComet;
 import com.dmtavt.fragpipe.messages.NoteConfigCometParams;
 import com.dmtavt.fragpipe.messages.NoteConfigDatabase;
 import com.dmtavt.fragpipe.tools.comet.CometParams;
+import com.dmtavt.fragpipe.tools.comet.CometPinUpdateDecoyLabel;
 import com.dmtavt.fragpipe.tools.enums.MassTolUnits;
 import com.dmtavt.fragpipe.tools.enums.PrecursorMassTolUnits;
 import com.dmtavt.fragpipe.tools.fragger.MsfraggerParams;
+import com.github.chhh.utils.IOUtils;
 import com.github.chhh.utils.StringUtils;
 import com.github.chhh.utils.UsageTrigger;
 import org.slf4j.Logger;
@@ -18,16 +19,12 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
 import java.awt.*;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -190,36 +187,23 @@ public class CmdComet extends CmdBase {
         }
 
 
-        // copy the comet param file to the output dir
-//        List<ProcessBuilder> pbCopyParams = ToolingUtils.pbsCopyFiles(jarFragpipe, wd, Collections.singletonList(pCometParams));
-//        pbis.addAll(PbiBuilder.from(pbCopyParams, "Comet copy params file"));
+        // copy + update the comet param file to the output dir
         final Path pathParamsActual = wd.resolve(pathParamsOrig.getFileName());
-        if (!isDryRun) {
-            // copy the params file and update contents to match search params
-            try {
-                Files.copy(pathParamsOrig, pathParamsActual, StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException e) {
-                showError("Could not copy Comet params file to work dir:\n" + pathParamsActual, comp);
-                return false;
-            }
-            try {
-                updateCometParamsFile(pathParamsActual, decoyTag);
-            } catch (IOException e) {
-                showError("Error rewriting Comet params file in work dir:\n" + pathParamsActual, comp);
-                return false;
-            }
-        }
-
         if (pathParamsActual.toString().contains(" ")) {
             showError("Comet .params file path contains spaces.\n" +
                     "Please change output directory to one without spaces.", comp);
             return false;
         }
         try {
-            if (!validateCometParamsFile(pathParamsActual, comp))
+            List<String> paramsOrigLines = Files.readAllLines(pathParamsOrig);
+            List<String> paramsUpdatedLines = updateCometParamsContent(paramsOrigLines, decoyTag, pathFasta);
+            if (!validateCometParamsContent(paramsUpdatedLines, comp))
                 return false;
+            if (!isDryRun) {
+                IOUtils.updateFileContent(pathParamsActual, paramsUpdatedLines);
+            }
         } catch (IOException e) {
-            showError("Error validating the new comet.params file: " + e.getMessage(), comp);
+            showError("Error updating Comet .params file: \n" + e.getMessage(), comp);
             return false;
         }
 
@@ -278,7 +262,7 @@ public class CmdComet extends CmdBase {
         }
         final String cometPinOut = cometParams.getProps().getProp("output_percolatorfile", "1").value;
         final boolean isOutputPin = "1".equals(cometPinOut);
-        if (!isOutputPepXml) {
+        if (!isOutputPin) {
             showError("Set output_percolatorfile=1 in comet.params file", comp);
             return false;
         }
@@ -289,7 +273,7 @@ public class CmdComet extends CmdBase {
                 List<String> cmd = new ArrayList<>();
                 cmd.add(binComet.useBin());
                 cmd.add("-P" + pathParamsActual);
-
+                cmd.add("-D" + pathFasta); // override fasta file path specified in params file
                 // check if the command length is ok so far
                 sb.append(String.join(" ", cmd));
                 if (sb.length() > commandLenLimit) {
@@ -324,8 +308,12 @@ public class CmdComet extends CmdBase {
                 for (InputLcmsFile lcms : addedLcmsFiles) {
                     if (isOutputPepXml)
                         createMoveCommands(mapLcmsToPepxml, lcms, "pepxml", jarFragpipe, pbis);
-                    if (isOutputPin)
-                        createMoveCommands(mapLcmsToPin, lcms, "pin", jarFragpipe, pbis);
+                    if (isOutputPin) {
+                        Map<Path, Path> pinFiles = createMoveCommands(mapLcmsToPin, lcms, "pin", jarFragpipe, pbis);
+                        for (Path pin : pinFiles.values()) {
+                            pbPinUpdateLabel(jarFragpipe, decoyTag, pin, pbis);
+                        }
+                    }
                 }
             }
         }
@@ -334,10 +322,10 @@ public class CmdComet extends CmdBase {
         return true;
     }
 
-    private boolean validateCometParamsFile(Path pathParams, Component comp) throws IOException {
+    private boolean validateCometParamsContent(List<String> lines, Component comp) throws IOException {
         NoteConfigDatabase confDb = Fragpipe.getStickyStrict(NoteConfigDatabase.class);
-        List<String> lines = Files.readAllLines(pathParams);
         final Pattern reEq = Pattern.compile("=");
+        int decoy_search = -1;
         for (String line : lines) {
             final int commentStart = line.indexOf('#');
             final String content = commentStart > 0 ? line.substring(0, commentStart) : line;
@@ -351,20 +339,20 @@ public class CmdComet extends CmdBase {
                 switch (v) {
                     case 0: {
                         if (confDb.decoysCnt == 0) {
-                            showError("Comet param `decoy_search=0`, but no decoys in DB.\n" +
+                            showError("Comet params file has `decoy_search=0`, but there are NO decoys in DB.\n" +
                                     "To get FDR estimates either add decoys to DB or set `decoy_search=1`" +
                                     "in comet.params to automatically add them.", comp);
                             return false;
                         }
-                        Bus.postSticky(new NoteConfigCometParams(v));
                         break;
                     }
                     case 1: {
                         if (confDb.decoysCnt > 0) {
-                            showError("Comet param `decoy_search=1`, but there are decoys in DB.\n" +
-                                    "The result will be a mess, set decoy_search=0` in comet.params", comp);
+                            showError("Comet params file has `decoy_search=1`, but there ARE decoys in DB.\n" +
+                                    "The result will be a mess, set decoy_search=0` in comet.params to rely on existing decoys", comp);
                             return false;
                         }
+                        break;
                     }
                     default: {
                         showError("Comet param `decoy_search` can only have value 0 or 1.\n" +
@@ -372,19 +360,21 @@ public class CmdComet extends CmdBase {
                         return false;
                     }
                 }
+                decoy_search = v;
             }
         }
+        Bus.postSticky(new NoteConfigCometParams(decoy_search, confDb.decoysCnt > 0));
         return true;
     }
 
-    private void updateCometParamsFile(Path pathParams, String decoyTag) throws IOException {
-        List<String> lines = Files.readAllLines(pathParams);
+    private List<String> updateCometParamsContent(List<String> origContent, String decoyTag, String dbPath) throws IOException {
         List<String> updated = new ArrayList<>();
         final Pattern reEq = Pattern.compile("=");
         final Map<String, String> mapUpdatedValues = new HashMap<>();
         mapUpdatedValues.put("decoy_prefix", decoyTag);
         //mapUpdatedValues.put("decoy_search", "1"); // force Decoy search
-        for (String line : lines) {
+        mapUpdatedValues.put("database_name", dbPath);
+        for (String line : origContent) {
             final int commentStart = line.indexOf('#');
             final String content = commentStart > 0 ? line.substring(0, commentStart) : line;
             final String comment = commentStart > 0 ? line.substring(commentStart) : "";
@@ -401,18 +391,13 @@ public class CmdComet extends CmdBase {
             }
             updated.add(String.format("%s = %s %s", k, vUpdate, comment));
         }
-
-        final Path writeTo = pathParams;
-        try (BufferedWriter f = Files.newBufferedWriter(writeTo, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)) {
-            for (String s : updated) {
-                f.write(s);
-                f.write("\n");
-            }
-            f.flush();
-        }
+        return updated;
     }
 
-    private void createMoveCommands(Map<InputLcmsFile, List<Path>> mapLcmsToPepxml, InputLcmsFile lcms, String fileTypeDesc,
+    /**
+     * @return Map from original file location to new destination.
+     */
+    private Map<Path, Path> createMoveCommands(Map<InputLcmsFile, List<Path>> mapLcmsToPepxml, InputLcmsFile lcms, String fileTypeDesc,
                                     Path jarFragpipe, List<ProcessBuilderInfo> builders) {
         List<Path> expectedTargetPaths = mapLcmsToPepxml.get(lcms);
         if (expectedTargetPaths == null || expectedTargetPaths.isEmpty())
@@ -429,10 +414,39 @@ public class CmdComet extends CmdBase {
             copyFromTo.put(sourcePath, targetPath);
         }
 
+        // Comet move pep.xml, Comet move pin
         List<ProcessBuilder> pbsMove = ToolingUtils
                 .pbsCopyMoveFiles(jarFragpipe, ToolingUtils.Op.MOVE, true, copyFromTo);
-        // Comet move pep.xml, Comet move pin
         builders.addAll(PbiBuilder.from(pbsMove, String.format("%s move %s", NAME, fileTypeDesc)));
+
+        return copyFromTo;
+    }
+
+    private static void pbPinUpdateLabel(Path jarFragpipe, String decoyRegex, Path pathPinToFix, List<ProcessBuilderInfo> pbis) {
+        NoteConfigCometParams conf = Fragpipe.getStickyStrict(NoteConfigCometParams.class);
+        if (conf.decoy_search != 0 || !conf.dbHasDecoys) {
+            log.debug("No PIN file update necessary. conf.decoy_search={}, conf.dbHasDecoys={}", conf.decoy_search, conf.dbHasDecoys);
+            return; // no PIN updates necessary
+        }
+
+        if (jarFragpipe == null) {
+            throw new IllegalArgumentException("jar can't be null");
+        }
+        List<ProcessBuilder> pbs = new ArrayList<>();
+        Path pathPinFixed = Paths.get(pathPinToFix.toString() + ".fixed");
+        List<String> cmd = ToolingUtils.cmdStubForJar(jarFragpipe);
+        cmd.add(CometPinUpdateDecoyLabel.class.getCanonicalName());
+        cmd.add(decoyRegex);
+        cmd.add(pathPinToFix.toString());
+        cmd.add(pathPinFixed.toString());
+        pbs.add(new ProcessBuilder(cmd));
+
+        // copy back and delete original
+        final HashMap<Path, Path> fromTo = new HashMap<>();
+        fromTo.put(pathPinFixed, pathPinToFix);
+        pbs.addAll(ToolingUtils.pbsCopyMoveFiles(jarFragpipe, ToolingUtils.Op.MOVE, false, fromTo));
+
+        pbis.addAll(PbiBuilder.from(pbs, String.format("%s update PIN files", NAME)));
     }
 
     private void adjustDiaParams(MsfraggerParams params, MsfraggerParams paramsNew, String dataType) {

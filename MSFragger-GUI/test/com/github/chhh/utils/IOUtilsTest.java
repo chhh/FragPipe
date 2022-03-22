@@ -94,21 +94,13 @@ public class IOUtilsTest {
     map.put(fnUtf16Be, BOM.UTF_16_BE);
     map.put(fnUtf16Le, BOM.UTF_16_LE);
     for (Entry<String, BOM> kv : map.entrySet()) {
-      Path path = getResource(IOUtilsTest.class, "bom", kv.getKey());
+      Path path = IOUtils.getResource(IOUtilsTest.class, "bom", kv.getKey());
       log.debug("BOM file path: {}", path);
       try (BufferedSource bs = Okio.buffer(Okio.source(path))) {
         BOM bom = IOUtils.detectBom(bs);
         Assert.assertEquals("Wrong BOM detected", kv.getValue(), bom);
       }
     }
-  }
-
-  public static Path getResource(Class<?> clazz, String resourceLocation, String resourceName)
-      throws Exception {
-    ClassLoader cl = clazz.getClassLoader();
-    final URI uri = Objects.requireNonNull(cl.getResource(resourceLocation)).toURI();
-    final Path path = Paths.get(uri).toAbsolutePath();
-    return Paths.get(path.toString(), resourceName).toAbsolutePath();
   }
 
   private String pepxmlSample() {
