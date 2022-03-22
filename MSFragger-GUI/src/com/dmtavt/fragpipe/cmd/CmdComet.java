@@ -1,7 +1,11 @@
 package com.dmtavt.fragpipe.cmd;
 
 import com.dmtavt.fragpipe.Fragpipe;
+import com.dmtavt.fragpipe.api.Bus;
 import com.dmtavt.fragpipe.api.InputLcmsFile;
+import com.dmtavt.fragpipe.messages.NoteConfigComet;
+import com.dmtavt.fragpipe.messages.NoteConfigCometParams;
+import com.dmtavt.fragpipe.messages.NoteConfigDatabase;
 import com.dmtavt.fragpipe.tools.comet.CometParams;
 import com.dmtavt.fragpipe.tools.enums.MassTolUnits;
 import com.dmtavt.fragpipe.tools.enums.PrecursorMassTolUnits;
@@ -211,6 +215,13 @@ public class CmdComet extends CmdBase {
                     "Please change output directory to one without spaces.", comp);
             return false;
         }
+        try {
+            if (!validateCometParamsFile(pathParamsActual, comp))
+                return false;
+        } catch (IOException e) {
+            showError("Error validating the new comet.params file: " + e.getMessage(), comp);
+            return false;
+        }
 
         //params.setDatabaseName(pathFasta); // we will pass it as a parameter instead
         params.setDecoyPrefix(decoyTag);
@@ -323,13 +334,56 @@ public class CmdComet extends CmdBase {
         return true;
     }
 
+    private boolean validateCometParamsFile(Path pathParams, Component comp) throws IOException {
+        NoteConfigDatabase confDb = Fragpipe.getStickyStrict(NoteConfigDatabase.class);
+        List<String> lines = Files.readAllLines(pathParams);
+        final Pattern reEq = Pattern.compile("=");
+        for (String line : lines) {
+            final int commentStart = line.indexOf('#');
+            final String content = commentStart > 0 ? line.substring(0, commentStart) : line;
+            String[] split = reEq.split(content);
+            if (split.length != 2) {
+                continue;
+            }
+            final String k = split[0].trim();
+            if ("decoy_search".equals(k)) {
+                final int v = Integer.parseInt(split[1].trim());
+                switch (v) {
+                    case 0: {
+                        if (confDb.decoysCnt == 0) {
+                            showError("Comet param `decoy_search=0`, but no decoys in DB.\n" +
+                                    "To get FDR estimates either add decoys to DB or set `decoy_search=1`" +
+                                    "in comet.params to automatically add them.", comp);
+                            return false;
+                        }
+                        Bus.postSticky(new NoteConfigCometParams(v));
+                        break;
+                    }
+                    case 1: {
+                        if (confDb.decoysCnt > 0) {
+                            showError("Comet param `decoy_search=1`, but there are decoys in DB.\n" +
+                                    "The result will be a mess, set decoy_search=0` in comet.params", comp);
+                            return false;
+                        }
+                    }
+                    default: {
+                        showError("Comet param `decoy_search` can only have value 0 or 1.\n" +
+                                "Other values are not supported.", comp);
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
     private void updateCometParamsFile(Path pathParams, String decoyTag) throws IOException {
         List<String> lines = Files.readAllLines(pathParams);
         List<String> updated = new ArrayList<>();
-        final Pattern reDecoyPrefix = Pattern.compile("^\\s*(\\w+)\\s*=\\s*([^#\\s]+)(.*)");
         final Pattern reEq = Pattern.compile("=");
         final Map<String, String> mapUpdatedValues = new HashMap<>();
         mapUpdatedValues.put("decoy_prefix", decoyTag);
+        //mapUpdatedValues.put("decoy_search", "1"); // force Decoy search
         for (String line : lines) {
             final int commentStart = line.indexOf('#');
             final String content = commentStart > 0 ? line.substring(0, commentStart) : line;

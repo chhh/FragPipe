@@ -628,24 +628,34 @@ public class FragpipeRun {
     return lcmsFilesAll;
   }
 
+  private static void showError(JComponent parent, String message) {
+    if (Fragpipe.headless) {
+      log.error(message);
+    } else {
+      JOptionPane.showMessageDialog(parent, message, "Warning", JOptionPane.WARNING_MESSAGE);
+    }
+  }
+
   private static String checkFasta(JComponent parent, NoteConfigDatabase configDb) {
     if (configDb == null || configDb.path == null || StringUtils.isBlank(configDb.path.toString())) {
-      if (Fragpipe.headless) {
-        log.error("FASTA file path is empty or the file is corrupted");
-      } else {
-        JOptionPane.showMessageDialog(parent, "FASTA file path is empty or the file is corrupted", "Warning", JOptionPane.WARNING_MESSAGE);
-      }
+      showError(parent, "FASTA file path is empty or the file is corrupted");
       return null;
     }
     final Path existing = PathUtils.existing(configDb.path.toString());
     if (existing == null) {
-      if (Fragpipe.headless) {
-        log.error(String.format("Could not find fasta file at: %s", configDb.path));
-      } else {
-        JOptionPane.showMessageDialog(parent, String.format("Could not find fasta file (Database) at:\n%s", configDb.path), "Errors", JOptionPane.ERROR_MESSAGE);
-      }
+      showError(parent, String.format("Could not find fasta file (Database) at:\n%s", configDb.path));
       return null;
     }
+//    NoteConfigDatabase confDb = Fragpipe.getStickyStrict(NoteConfigDatabase.class);
+//    NoteConfigSearchEngine confSe = Fragpipe.getStickyStrict(NoteConfigSearchEngine.class);
+//    if (confSe.type == NoteConfigSearchEngine.Type.Comet) {
+//      if (confDb.decoysCnt > 0) {
+//        showError(parent, "For Comet to write output files properly let it add decoys\n" +
+//                "to the DB itself, instead of providing your own.\n" +
+//                "If you haven't already, we have set `decoy_search=1` in comet.params for you.");
+//        return null;
+//      }
+//    }
     return existing.toString();
   }
 
