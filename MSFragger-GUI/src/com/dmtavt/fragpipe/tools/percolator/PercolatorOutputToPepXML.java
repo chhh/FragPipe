@@ -299,12 +299,23 @@ public class PercolatorOutputToPepXML {
         }
 
         final SearchEngine se = findSearchEngine(nameValues);
+        Function<String, Spectrum_rank> extractSpecRank;
+        switch (se) {
+            case MsFragger:
+                extractSpecRank = PercolatorOutputToPepXML::get_spectrum_rank_msfragger;
+                break;
+            case Comet:
+                extractSpecRank = PercolatorOutputToPepXML::get_spectrum_rank_comet;
+                break;
+            default:
+                throw new UnsupportedOperationException("Only know how to extract SpectrumRank for Comet and MsFragger");
+        }
 
         final Map<String, NttNmc[]> pinSpectrumRankNttNmc = new HashMap<>();
-        parsePinAsRankNttNmc(pin, max_rank, pinSpectrumRankNttNmc, se);
+        parsePinAsRankNttNmc(pin, max_rank, pinSpectrumRankNttNmc, extractSpecRank);
 
         final Map<String, PepScore[]> pinSpectrumRankPepScore = new HashMap<>();
-        parsePercolatorTsvAsRankPepScore(percolatorTargetPsms, percolatorDecoyPsms, minProb, max_rank, pinSpectrumRankPepScore);
+        parsePercolatorTsvAsRankPepScore(percolatorTargetPsms, percolatorDecoyPsms, minProb, max_rank, pinSpectrumRankPepScore, extractSpecRank);
 
         for (int rank = 1; rank <= (is_DIA ? max_rank : 1); ++rank) {
             final Path output_rank = is_DIA
@@ -373,7 +384,8 @@ public class PercolatorOutputToPepXML {
         return SearchEngine.Unknown; // should never get here, but static analysis complains
     }
 
-    private static void parsePercolatorTsvAsRankPepScore(Path percolatorTargetPsms, Path percolatorDecoyPsms, double minProb, int max_rank, Map<String, PepScore[]> pinSpectrumRankPepScore) {
+    private static void parsePercolatorTsvAsRankPepScore(Path percolatorTargetPsms, Path percolatorDecoyPsms, double minProb, int max_rank, Map<String, PepScore[]> pinSpectrumRankPepScore,
+                                                         Function<String, Spectrum_rank> extractSpecRank) {
         for (final Path tsv : new Path[]{percolatorTargetPsms, percolatorDecoyPsms}) {
             try (final BufferedReader brtsv = Files.newBufferedReader(tsv)) {
                 final String percolator_header = brtsv.readLine();
@@ -386,7 +398,7 @@ public class PercolatorOutputToPepXML {
                 while ((line = brtsv.readLine()) != null) {
                     final String[] split = line.split("\t");
                     final String raw_psmid = split[indexOfPSMId];
-                    final Spectrum_rank spectrum_rank = get_spectrum_rank_msfragger(raw_psmid);
+                    final Spectrum_rank spectrum_rank = extractSpecRank.apply(raw_psmid);
                     final String specId = spectrum_rank.spectrum;
                     final int rank = spectrum_rank.rank;
                     final double pep = Double.parseDouble(split[indexOfPEP]);
@@ -406,7 +418,8 @@ public class PercolatorOutputToPepXML {
         }
     }
 
-    private static void parsePinAsRankNttNmc(Path pin, int max_rank, final Map<String, NttNmc[]> pinSpectrumRankNttNmc, SearchEngine se) {
+    private static void parsePinAsRankNttNmc(Path pin, int max_rank, final Map<String, NttNmc[]> pinSpectrumRankNttNmc,
+                                             Function<String, Spectrum_rank> extractSpecRank) {
         try (final BufferedReader brtsv = Files.newBufferedReader(pin)) {
             final String pin_header = brtsv.readLine();
             final List<String> colnames = Arrays.asList(pin_header.split("\t"));
@@ -438,18 +451,6 @@ public class PercolatorOutputToPepXML {
             }
             if (extractNttNmc == null) {
                 throw new IllegalStateException("Did not find ntt/nmc or enzN/enzC/enzInt columns in the pin file");
-            }
-
-            final Function<String, Spectrum_rank> extractSpecRank;
-            switch (se) {
-                case MsFragger:
-                    extractSpecRank = PercolatorOutputToPepXML::get_spectrum_rank_msfragger;
-                    break;
-                case Comet:
-                    extractSpecRank = PercolatorOutputToPepXML::get_spectrum_rank_comet;
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Only know how to extract SpectrumRank for Comet and MsFragger");
             }
 
             String line;
