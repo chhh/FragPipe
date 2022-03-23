@@ -45,9 +45,19 @@ import java.util.regex.Pattern;
 public class PercolatorOutputToPepXML {
 
     private static final Pattern pattern = Pattern.compile("(.+spectrum=\".+\\.)([0-9]+)\\.([0-9]+)(\\.[0-9]+\".+)");
-    private static final Pattern reSpecRankPinComet = Pattern.compile("([^\\\\/]+)_\\d+_(\\d+)$");
-    private static final Pattern reSpecRankPinMsFragger = Pattern.compile("([^\\\\/]+)_\\d+_(\\d+)$");
-    private static final Pattern reSpecRankPercolator = Pattern.compile("([^\\\\/]+)_\\d+_(\\d+)$");
+    /**
+     * Split an example like:<br/>
+     * {@code C:\Human-Protein-Training_Trypsin_821_3_2} into 3 groups<br/>
+     * {@code C:\[Human-Protein-Training_Trypsin]_[821]_3_[2]}
+     */
+    private static final Pattern reSpecRankPinComet = Pattern.compile("([^\\\\/]+)_(\\d+)_\\d+_(\\d+)$");
+    /**
+     * Split an example like:<br/>
+     * {@code Human-Protein-Training_Trypsin.12198.12198.4_1} into 2 groups<br/>
+     * {@code [Human-Protein-Training_Trypsin.12198.12198].4_[1]}
+     */
+    private static final Pattern reSpecRankPinMsFragger = Pattern.compile("([^\\\\/]+)\\.\\d+_(\\d+)$");
+//    private static final Pattern reSpecRankPercolator = Pattern.compile("([^\\\\/]+)_\\d+_(\\d+)$");
 
     public static void main(final String[] args) {
         Locale.setDefault(Locale.US);
@@ -105,21 +115,24 @@ public class PercolatorOutputToPepXML {
             this.spectrum = spectrum;
             this.rank = rank;
         }
+
+        @Override
+        public String toString() {
+            return "Spectrum_rank{" +
+                    "spectrum='" + spectrum + '\'' +
+                    ", rank=" + rank +
+                    '}';
+        }
     }
 
     /**
      * Example to be parsed: Human-Protein-Training_Trypsin.12198.12198.4_1
      */
     private static Spectrum_rank get_spectrum_rank_msfragger(final String s){
-        try {
-            final int lastIndexOfDot = s.lastIndexOf(".");
-            final String charge_rank = s.substring(lastIndexOfDot);
-            final int rank = Integer.parseInt(charge_rank.split("_")[1]);
-            return new Spectrum_rank(s.substring(0, lastIndexOfDot), rank);
-        } catch (StringIndexOutOfBoundsException e) {
-            exit("\"Unexpected input string for parsing MsFragger's SpectrumRank from SpecId: " + s);
-        }
-        throw new IllegalStateException();
+        Matcher m = reSpecRankPinMsFragger.matcher(s);
+        if (!m.find())
+            throw new IllegalStateException("Unexpected input string for parsing MsFragger's SpectrumRank from SpecId: " + s);
+        return new Spectrum_rank(m.group(1), Integer.parseInt(m.group(2)));
     }
 
     /**
