@@ -60,6 +60,7 @@ public class CometPinUpdateDecoyLabel {
             f.write(header);
             newLine(f);
             int countDecoys = 0;
+            int countTotal = 0;
             for (int lineNum = 1; lineNum <lines.size(); lineNum++) {
                 final String line = lines.get(lineNum);
                 offsets[0] = 0;
@@ -73,6 +74,7 @@ public class CometPinUpdateDecoyLabel {
                 }
                 if (isDebug)
                     System.out.println(line.subSequence(offsets[indexOfProts], line.length()));
+                countTotal += 1;
                 final Matcher m = re.matcher(line.subSequence(offsets[indexOfProts], line.length()));
                 if (!m.find()) {
                     f.write(line); // not found, copy original line
@@ -101,7 +103,7 @@ public class CometPinUpdateDecoyLabel {
                 newLine(f);
             }
             f.flush();
-            System.out.printf("Updated %d decoy entries, output to: %s", countDecoys, pathOutTmp);
+            System.out.printf("Updated %d decoy entries (out of %d total), output to: %s", countDecoys, lines.size(), pathOutTmp);
         }
     }
 
