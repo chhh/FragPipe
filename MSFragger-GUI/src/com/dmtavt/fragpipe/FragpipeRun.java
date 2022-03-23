@@ -808,7 +808,7 @@ public class FragpipeRun {
     final int ramGb = tabWorkflow.getRamGb() > 0 ? tabWorkflow.getRamGb() : OsUtils.getDefaultXmx();
     final int threads = tabWorkflow.getThreads();
 
-    CmdCheckCentroid cmdCheckCentroid = new CmdCheckCentroid(true, wd);
+    CmdCheckCentroid cmdCheckCentroid = new CmdCheckCentroid(false, wd);
     addConfig.accept(cmdCheckCentroid, () -> {
       if (cmdCheckCentroid.isRun()) {
         return cmdCheckCentroid.configure(jarPath, ramGb, threads, sharedLcmsFiles);
@@ -1410,6 +1410,9 @@ public class FragpipeRun {
 
     // compose graph of required dependencies
     final Graph<CmdBase, DefEdge> graphDeps = new DirectedAcyclicGraph<>(DefEdge.class);
+    addToGraph(graphDeps, cmdMsfragger, DIRECTION.OUT, cmdCheckCentroid);
+    addToGraph(graphDeps, cmdUmpire, DIRECTION.OUT, cmdCheckCentroid);
+    addToGraph(graphDeps, cmdComet, DIRECTION.OUT, cmdCheckCentroid);
     addToGraph(graphDeps, cmdPhilosopherFilter, DIRECTION.OUT, cmdPhilosopherDbAnnotate);
     addToGraph(graphDeps, cmdTmtFreequant, DIRECTION.OUT, cmdPhilosopherFilter, cmdPhilosopherReport);
     addToGraph(graphDeps, cmdTmtLabelQuant, DIRECTION.OUT, cmdPhilosopherFilter, cmdPhilosopherReport);
