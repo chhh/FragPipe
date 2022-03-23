@@ -1439,7 +1439,7 @@ public class FragpipeRun {
       while (it.hasNext()) {
         CmdBase next = it.next();
         log.debug("Next traversal node: [{}]", next);
-        if (!next.isRun()) {
+        if (!next.isRun() && next.warnIfRunAsDependencyWhileSwitchedOff()) {
           log.warn(
               "Command [{}] is a required dependency of [{}]. Will be run despite being switched off.",
               next.getCmdName(), origin.getCmdName());
