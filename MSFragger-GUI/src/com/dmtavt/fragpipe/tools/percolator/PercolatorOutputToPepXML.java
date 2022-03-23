@@ -17,6 +17,7 @@
 
 package com.dmtavt.fragpipe.tools.percolator;
 
+import javax.xml.stream.XMLStreamException;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -106,32 +107,28 @@ public class PercolatorOutputToPepXML {
         return new Spectrum_rank(s.substring(0, s.lastIndexOf(".")), rank);
     }
 
+    private static int getMaxRankFromPepxml(Path pepxmlPath) throws XMLStreamException, IOException {
+        List<StoxParserPepxml.NameValue> params = StoxParserPepxml.parseSearchSummary(pepxmlPath);
+        for (StoxParserPepxml.NameValue kv : params) {
+            if ("output_report_topN".equals(kv.k)           // MsFragger
+                    || "num_output_lines".equals(kv.k)) {   // Comet
+                return Integer.parseInt(kv.v);
+            }
+        }
+        throw new IllegalStateException("Did not find `output_report_topN` or `num_output_lines` search engine parameters");
+    }
+
     private static int get_max_rank(final String basename, final boolean is_DIA) {
         final Path pathDIA = Paths.get(basename + "_rank1.pepXML");
         final Path pathDDA = Paths.get(basename + ".pepXML");
         final Path path = is_DIA ? pathDIA : pathDDA;
 
-        final Pattern compile = Pattern.compile("<parameter name=\"output_report_topN\" value=\"(\\d+)\"/>");
-        try (final BufferedReader br = Files.newBufferedReader(path)) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                final Matcher matcher = compile.matcher(line.trim());
-                if (matcher.find())
-                    return Integer.parseInt(matcher.group(1));
-            }
-        } catch (IOException e) {
-            System.err.printf("Error while searching for output_report_topN in: [%s]\n\n", path.toAbsolutePath());
-            System.err.println(e.getMessage());
-//            System.exit(1);
-//            return -1;
+        try {
+             return getMaxRankFromPepxml(path);
+        } catch (XMLStreamException | IOException e) {
+            e.printStackTrace();
         }
-        System.err.printf("Didn't find 'output_report_topN' parameter in: [%s]", path.toAbsolutePath());
-//        System.exit(1);
-//        return -1;
-        //TODO: in case of Comet we can get that from the comet.params file ('num_output_lines' option)
-        int outputTopN = 1;
-        System.err.printf("Using 'output_report_topN'=%d", outputTopN);
-        return outputTopN;
+        return -1;
     }
 
     private static StringBuilder handle_search_hit(final List<String> searchHit, final NttNmc nttNmc, final PepScore pepScore, final int oldRank, final int newRank) {
@@ -258,7 +255,7 @@ public class PercolatorOutputToPepXML {
         final boolean is_DIA = DIA_DDA.equals("DIA");
         final int max_rank = get_max_rank(basename, is_DIA);
         if (max_rank < 1) {
-            System.err.println("Cannot find output_report_topN parameter from " + basename + "'s pepXML file.");
+            System.err.println("Couldn't find max reported peptide rank in pepxml search engine parameters");
             System.exit(1);
         }
 

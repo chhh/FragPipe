@@ -137,8 +137,8 @@ public class CmdPercolator extends CmdBase {
         final Path pepxmlDir = pepxmlPath.getParent();
         //final String nameWithoutExt = FilenameUtils.removeExtension(pepxmlPath.getFileName().toString());
         final String nameWithoutExt = PathUtils.removeExtension(pepxmlPath.getFileName().toString(), 2, 10);
-        final String basename = remove_rank_suffix(nameWithoutExt);
-        if(!basenames.add(basename))
+        final String fnBase = remove_rank_suffix(nameWithoutExt);
+        if(!basenames.add(fnBase))
           continue;
         // Percolator
         List<String> cmdPp = new ArrayList<>();
@@ -146,11 +146,11 @@ public class CmdPercolator extends CmdBase {
                 OsUtils.isWindows() ? "percolator-305/percolator.exe" : null;
         cmdPp.add(FragpipeLocations.checkToolsMissing(Seq.of(percolator_bin)).get(0).toString());
 
-        String strippedBaseName;
+        final String fnStripped;
         if (hasCrystalC) {
-          strippedBaseName = basename.replaceFirst("_c$", "");
+          fnStripped = fnBase.replaceFirst("_c$", "");
         } else {
-          strippedBaseName = basename;
+          fnStripped = fnBase;
         }
 
         addFreeCommandLineParams(percolatorParams, cmdPp);
@@ -160,24 +160,26 @@ public class CmdPercolator extends CmdBase {
         cmdPp.add("--protein-decoy-pattern");
         cmdPp.add(decoyPrefix);
         cmdPp.add("--results-psms");
-        cmdPp.add(strippedBaseName + "_percolator_target_psms.tsv");
+        cmdPp.add(fnStripped + "_percolator_target_psms.tsv");
         cmdPp.add("--decoy-results-psms");
-        cmdPp.add(strippedBaseName + "_percolator_decoy_psms.tsv");
+        cmdPp.add(fnStripped + "_percolator_decoy_psms.tsv");
 
         if (msboosterPanel.isRun()) {
-          cmdPp.add(Paths.get(strippedBaseName + "_edited.pin").toString());
+          cmdPp.add(Paths.get(fnStripped + "_edited.pin").toString());
         } else {
-          cmdPp.add(Paths.get(strippedBaseName + ".pin").toString());
+          cmdPp.add(Paths.get(fnStripped + ".pin").toString());
         }
 
         ProcessBuilder pbPp = new ProcessBuilder(cmdPp);
         setupEnv(pepxmlDir, pbPp);
         pbisParallel.add(new PbiBuilder()
             .setPb(pbPp)
-            .setParallelGroup(basename).create());
+            .setParallelGroup(fnBase).create());
 
         // convert the percolator output tsv to PeptideProphet's pep.xml format
-        ProcessBuilder pbRewrite = pbConvertToPepxml(jarFragpipe, "interact-" + basename, strippedBaseName, basename, e.getKey().getDataType().contentEquals("DDA"), minProb);
+        final String fnOutBase = "interact-" + fnBase;
+        final boolean isDda = e.getKey().getDataType().contentEquals("DDA");
+        ProcessBuilder pbRewrite = pbConvertToPepxml(jarFragpipe, fnOutBase, fnStripped, fnBase, isDda, minProb);
         pbRewrite.directory(pepxmlPath.getParent().toFile());
         pbisPostParallel.add(new PbiBuilder().setName("Percolator: Convert to pepxml").setPb(pbRewrite).setParallelGroup(ProcessBuilderInfo.GROUP_SEQUENTIAL).create());
 
@@ -185,8 +187,8 @@ public class CmdPercolator extends CmdBase {
         PercolatorPanel percolatorPanel = Fragpipe.getStickyStrict(PercolatorPanel.class);
         if (!percolatorPanel.isKeepTsvFiles()) {
           final List<Path> temp = new ArrayList<>();
-          temp.add(pepxmlDir.resolve(strippedBaseName + "_percolator_target_psms.tsv"));
-          temp.add(pepxmlDir.resolve(strippedBaseName + "_percolator_decoy_psms.tsv"));
+          temp.add(pepxmlDir.resolve(fnStripped + "_percolator_target_psms.tsv"));
+          temp.add(pepxmlDir.resolve(fnStripped + "_percolator_decoy_psms.tsv"));
           List<ProcessBuilder> pbsDeleteTemp = ToolingUtils
                   .pbsDeleteFiles(jarFragpipe, temp);
           pbisPostParallel.addAll(pbsDeleteTemp.stream()
@@ -226,26 +228,17 @@ public class CmdPercolator extends CmdBase {
     return b;
   }
 
-  private static ProcessBuilder pbConvertToPepxml(Path jarFragpipe, String outBaseName, String stripedBasename, String basename, boolean isDDA, double minProb) {
+  private static ProcessBuilder pbConvertToPepxml(Path jarFragpipe, String fnOutBase, String fnStripped, String fnBase, boolean isDDA, double minProb) {
     if (jarFragpipe == null) {
       throw new IllegalArgumentException("jar can't be null");
     }
-    final List<String> cmd = new ArrayList<>();
-    cmd.add(Fragpipe.getBinJava());
-    cmd.add("-cp");
-    Path root = FragpipeLocations.get().getDirFragpipeRoot();
-    String libsDir = root.resolve("lib") + "/*";
-    if (Files.isDirectory(jarFragpipe)) {
-      libsDir = jarFragpipe.getParent().getParent().getParent().getParent().resolve("build/install/fragpipe/lib") + "/*";
-      log.warn("Dev message: Looks like FragPipe was run from IDE, changing libs directory to: {}", libsDir);
-    }
-    cmd.add(libsDir);
+    final List<String> cmd = ToolingUtils.cmdStubForJar(jarFragpipe);
     cmd.add(PercolatorOutputToPepXML.class.getCanonicalName());
-    cmd.add(stripedBasename + ".pin");
-    cmd.add(basename);
-    cmd.add(stripedBasename + "_percolator_target_psms.tsv");
-    cmd.add(stripedBasename + "_percolator_decoy_psms.tsv");
-    cmd.add(outBaseName);
+    cmd.add(fnStripped + ".pin");
+    cmd.add(fnBase);
+    cmd.add(fnStripped + "_percolator_target_psms.tsv");
+    cmd.add(fnStripped + "_percolator_decoy_psms.tsv");
+    cmd.add(fnOutBase);
     cmd.add(isDDA ? "DDA" : "DIA");
     cmd.add(minProb + "");
     return new ProcessBuilder(cmd);
