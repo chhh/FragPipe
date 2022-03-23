@@ -19,9 +19,12 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
 import java.awt.*;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -194,9 +197,10 @@ public class CmdComet extends CmdBase {
                     "Please change output directory to one without spaces.", comp);
             return false;
         }
+        List<String> paramsUpdatedLines;
         try {
             List<String> paramsOrigLines = Files.readAllLines(pathParamsOrig);
-            List<String> paramsUpdatedLines = updateCometParamsContent(paramsOrigLines, decoyTag, pathFasta);
+            paramsUpdatedLines = updateCometParamsContent(paramsOrigLines, decoyTag, pathFasta);
             if (!validateCometParamsContent(paramsUpdatedLines, comp))
                 return false;
             if (!isDryRun) {
@@ -245,14 +249,24 @@ public class CmdComet extends CmdBase {
 
         // read comet params file
         CometParams cometParams = new CometParams();
-        try {
-            cometParams.load(Files.newInputStream(pathParamsActual), true);
-        } catch (FileNotFoundException ex) {
-            showError("Comet params file does not exist: " + pathParamsActual, comp);
-            return false;
-        } catch (IOException ex) {
-            showError("Could not read Comet params file", comp);
-            return false;
+        if (!isDryRun) {
+            try {
+                cometParams.load(Files.newInputStream(pathParamsActual), true);
+            } catch (FileNotFoundException ex) {
+                showError("Comet params file does not exist: " + pathParamsActual, comp);
+                return false;
+            } catch (IOException ex) {
+                showError("Could not read Comet params file", comp);
+                return false;
+            }
+        } else {
+            String paramsContent = String.join("\n", paramsUpdatedLines);
+            try {
+                cometParams.load(new ByteArrayInputStream(paramsContent.getBytes(StandardCharsets.UTF_8)), true);
+            } catch (IOException e) {
+                showError("Could not read Comet params file content from string", comp);
+                return false;
+            }
         }
         final String cometPepxmlOut = cometParams.getProps().getProp("output_pepxmlfile", "1").value;
         final boolean isOutputPepXml = "1".equals(cometPepxmlOut);
