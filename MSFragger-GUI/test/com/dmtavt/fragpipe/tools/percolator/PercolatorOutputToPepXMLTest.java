@@ -12,8 +12,8 @@ public class PercolatorOutputToPepXMLTest {
 
     @Test
     public void percolatorToPepXML() {
-        final Path dir = Paths.get("C:\\Users\\DmitryAvtonomov\\ms-data\\bin-ma-2021_PXD022287\\fragpipe-search-14_PXD022287_comet");
-//        final Path dir = Paths.get("C:\\Users\\DmitryAvtonomov\\ms-data\\bin-ma-2021_PXD022287\\fragpipe-search-12_PXD022287_fragger");
+//        final Path dir = Paths.get("C:\\Users\\DmitryAvtonomov\\ms-data\\bin-ma-2021_PXD022287\\fragpipe-search-14_PXD022287_comet");
+        final Path dir = Paths.get("C:\\Users\\DmitryAvtonomov\\ms-data\\bin-ma-2021_PXD022287\\fragpipe-search-16_PXD022287_msfragger");
         final String fnPin = "Human-Protein-Training_Trypsin.pin";
         final String fnBase = PathUtils.removeExtension(fnPin, 2, 10);
         final String fnPercolatorTargets = fnBase + "_percolator_target_psms.tsv";

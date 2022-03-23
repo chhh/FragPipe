@@ -17,6 +17,8 @@
 
 package com.dmtavt.fragpipe.tools.percolator;
 
+import org.jooq.lambda.function.Consumer3;
+
 import javax.xml.stream.XMLStreamException;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -36,12 +38,16 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PercolatorOutputToPepXML {
 
     private static final Pattern pattern = Pattern.compile("(.+spectrum=\".+\\.)([0-9]+)\\.([0-9]+)(\\.[0-9]+\".+)");
+    private static final Pattern reSpecRankPinComet = Pattern.compile("([^\\\\/]+)_\\d+_(\\d+)$");
+    private static final Pattern reSpecRankPinMsFragger = Pattern.compile("([^\\\\/]+)_\\d+_(\\d+)$");
+    private static final Pattern reSpecRankPercolator = Pattern.compile("([^\\\\/]+)_\\d+_(\\d+)$");
 
     public static void main(final String[] args) {
         Locale.setDefault(Locale.US);
@@ -101,14 +107,37 @@ public class PercolatorOutputToPepXML {
         }
     }
 
-    private static Spectrum_rank get_spectrum_rank(final String s){
-        final String charge_rank = s.substring(s.lastIndexOf("."));
-        final int rank = Integer.parseInt(charge_rank.split("_")[1]);
-        return new Spectrum_rank(s.substring(0, s.lastIndexOf(".")), rank);
+    /**
+     * Example to be parsed: Human-Protein-Training_Trypsin.12198.12198.4_1
+     */
+    private static Spectrum_rank get_spectrum_rank_msfragger(final String s){
+        try {
+            final int lastIndexOfDot = s.lastIndexOf(".");
+            final String charge_rank = s.substring(lastIndexOfDot);
+            final int rank = Integer.parseInt(charge_rank.split("_")[1]);
+            return new Spectrum_rank(s.substring(0, lastIndexOfDot), rank);
+        } catch (StringIndexOutOfBoundsException e) {
+            exit("\"Unexpected input string for parsing MsFragger's SpectrumRank from SpecId: " + s);
+        }
+        throw new IllegalStateException();
     }
 
-    private static int getMaxRankFromPepxml(Path pepxmlPath) throws XMLStreamException, IOException {
+    /**
+     * Example to be parsed: C:\Human-Protein-Training_Trypsin_821_3_2
+     */
+    private static Spectrum_rank get_spectrum_rank_comet(String s) {
+        Matcher m = reSpecRankPinComet.matcher(s);
+        if (!m.find())
+            throw new IllegalStateException("Unexpected input string for parsing Comet's SpectrumRank from SpecId: " + s);
+        return new Spectrum_rank(m.group(1), Integer.parseInt(m.group(2)));
+    }
+
+    private static List<StoxParserPepxml.NameValue> parseParamsFromPepxml(Path pepxmlPath) throws XMLStreamException, IOException {
         List<StoxParserPepxml.NameValue> params = StoxParserPepxml.parseSearchSummary(pepxmlPath);
+        return params;
+    }
+
+    private static int findMaxRank(List<StoxParserPepxml.NameValue> params) {
         for (StoxParserPepxml.NameValue kv : params) {
             if ("output_report_topN".equals(kv.k)           // MsFragger
                     || "num_output_lines".equals(kv.k)) {   // Comet
@@ -116,19 +145,6 @@ public class PercolatorOutputToPepXML {
             }
         }
         throw new IllegalStateException("Did not find `output_report_topN` or `num_output_lines` search engine parameters");
-    }
-
-    private static int get_max_rank(final String basename, final boolean is_DIA) {
-        final Path pathDIA = Paths.get(basename + "_rank1.pepXML");
-        final Path pathDDA = Paths.get(basename + ".pepXML");
-        final Path path = is_DIA ? pathDIA : pathDDA;
-
-        try {
-             return getMaxRankFromPepxml(path);
-        } catch (XMLStreamException | IOException e) {
-            e.printStackTrace();
-        }
-        return -1;
     }
 
     private static StringBuilder handle_search_hit(final List<String> searchHit, final NttNmc nttNmc, final PepScore pepScore, final int oldRank, final int newRank) {
@@ -249,66 +265,46 @@ public class PercolatorOutputToPepXML {
         return sb.toString();
     }
 
+    private static void exit(String message, Throwable ex) {
+        if (message != null)
+            System.err.println(message);
+        if (ex != null)
+            ex.printStackTrace();
+        System.exit(1);
+    }
+    private static void exit(String message) {
+        exit(message, null);
+    }
+
+    public enum SearchEngine {Unknown, MsFragger, Comet}
+
     public static void percolatorToPepXML(final Path pin, final String basename, final Path percolatorTargetPsms,
                                           final Path percolatorDecoyPsms, final Path outBasename, final String DIA_DDA, final double minProb) {
         // get max rank from pin
         final boolean is_DIA = DIA_DDA.equals("DIA");
-        final int max_rank = get_max_rank(basename, is_DIA);
-        if (max_rank < 1) {
-            System.err.println("Couldn't find max reported peptide rank in pepxml search engine parameters");
-            System.exit(1);
+        final Path pathPepxml = is_DIA
+                ? Paths.get(basename + "_rank1.pepXML")
+                : Paths.get(basename + ".pepXML");
+
+        List<StoxParserPepxml.NameValue> nameValues = null;
+        try {
+            nameValues = parseParamsFromPepxml(pathPepxml);
+        } catch (XMLStreamException | IOException e) {
+            exit("Couldn't parse search parameters from pepXML");
         }
+
+        final int max_rank = findMaxRank(nameValues);
+        if (max_rank < 1) {
+            exit("Couldn't find max reported peptide rank in pepxml search engine parameters");
+        }
+
+        final SearchEngine se = findSearchEngine(nameValues);
 
         final Map<String, NttNmc[]> pinSpectrumRankNttNmc = new HashMap<>();
-        try (final BufferedReader brtsv = Files.newBufferedReader(pin)) {
-            final String pin_header = brtsv.readLine();
-            final List<String> colnames = Arrays.asList(pin_header.split("\t"));
-            final int indexOf_SpecId = colnames.indexOf("SpecId");
-            final int indexOf_ntt = colnames.indexOf("ntt");
-            final int indexOf_nmc = colnames.indexOf("nmc");
-            String line;
-            while ((line = brtsv.readLine()) != null) {
-                final String[] split = line.split("\t");
-                final String raw_SpecId = split[indexOf_SpecId];
-                final Spectrum_rank spectrum_rank = get_spectrum_rank(raw_SpecId);
-                final String specId = spectrum_rank.spectrum;
-                final int rank = spectrum_rank.rank;
-                final int ntt = Integer.parseInt(split[indexOf_ntt]);
-                final int nmc = Integer.parseInt(split[indexOf_nmc]);
-                pinSpectrumRankNttNmc.computeIfAbsent(specId, e -> new NttNmc[max_rank])[rank - 1] = new NttNmc(ntt, nmc);
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        parsePinAsRankNttNmc(pin, max_rank, pinSpectrumRankNttNmc, se);
 
         final Map<String, PepScore[]> pinSpectrumRankPepScore = new HashMap<>();
-        for (final Path tsv : new Path[]{percolatorTargetPsms, percolatorDecoyPsms}) {
-            try (final BufferedReader brtsv = Files.newBufferedReader(tsv)) {
-                final String percolator_header = brtsv.readLine();
-                final List<String> colnames = Arrays.asList(percolator_header.split("\t"));
-                final int indexOfPSMId = colnames.indexOf("PSMId");
-                final int indexOfPEP = colnames.indexOf("posterior_error_prob");
-                final int indexOfScore = colnames.indexOf("score");
-                String line;
-                while ((line = brtsv.readLine()) != null) {
-                    final String[] split = line.split("\t");
-                    final String raw_psmid = split[indexOfPSMId];
-                    final Spectrum_rank spectrum_rank = get_spectrum_rank(raw_psmid);
-                    final String specId = spectrum_rank.spectrum;
-                    final int rank = spectrum_rank.rank;
-                    final double pep = Double.parseDouble(split[indexOfPEP]);
-
-                    if (1 - pep < minProb) {
-                        continue;
-                    }
-
-                    final double score = Double.parseDouble(split[indexOfScore]);
-                    pinSpectrumRankPepScore.computeIfAbsent(specId, e -> new PepScore[max_rank])[rank - 1] = new PepScore(pep, score);
-                }
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
+        parsePercolatorTsvAsRankPepScore(percolatorTargetPsms, percolatorDecoyPsms, minProb, max_rank, pinSpectrumRankPepScore);
 
         for (int rank = 1; rank <= (is_DIA ? max_rank : 1); ++rank) {
             final Path output_rank = is_DIA
@@ -366,6 +362,109 @@ public class PercolatorOutputToPepXML {
         }
     }
 
+    private static SearchEngine findSearchEngine(List<StoxParserPepxml.NameValue> nameValues) {
+        for (StoxParserPepxml.NameValue nv : nameValues) {
+            if (nv.k.toLowerCase(Locale.ROOT).contains("msfragger"))
+                return SearchEngine.MsFragger;
+            if (nv.k.toLowerCase(Locale.ROOT).contains("comet"))
+                return SearchEngine.Comet;
+        }
+        exit("Could not determine search engine from pepXML file header");
+        return SearchEngine.Unknown; // should never get here, but static analysis complains
+    }
+
+    private static void parsePercolatorTsvAsRankPepScore(Path percolatorTargetPsms, Path percolatorDecoyPsms, double minProb, int max_rank, Map<String, PepScore[]> pinSpectrumRankPepScore) {
+        for (final Path tsv : new Path[]{percolatorTargetPsms, percolatorDecoyPsms}) {
+            try (final BufferedReader brtsv = Files.newBufferedReader(tsv)) {
+                final String percolator_header = brtsv.readLine();
+                final List<String> colnames = Arrays.asList(percolator_header.split("\t"));
+                final int indexOfPSMId = colnames.indexOf("PSMId");
+                final int indexOfPEP = colnames.indexOf("posterior_error_prob");
+                final int indexOfScore = colnames.indexOf("score");
+                String line;
+                int countSkipped = 0;
+                while ((line = brtsv.readLine()) != null) {
+                    final String[] split = line.split("\t");
+                    final String raw_psmid = split[indexOfPSMId];
+                    final Spectrum_rank spectrum_rank = get_spectrum_rank_msfragger(raw_psmid);
+                    final String specId = spectrum_rank.spectrum;
+                    final int rank = spectrum_rank.rank;
+                    final double pep = Double.parseDouble(split[indexOfPEP]);
+
+                    if (1 - pep < minProb) {
+                        countSkipped += 1;
+                        continue;
+                    }
+
+                    final double score = Double.parseDouble(split[indexOfScore]);
+                    pinSpectrumRankPepScore.computeIfAbsent(specId, e -> new PepScore[max_rank])[rank - 1] = new PepScore(pep, score);
+                }
+                System.out.printf("Skipped %d rows due to min probability cutoff %.4f in: %s\n", countSkipped, minProb, tsv);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+    }
+
+    private static void parsePinAsRankNttNmc(Path pin, int max_rank, final Map<String, NttNmc[]> pinSpectrumRankNttNmc, SearchEngine se) {
+        try (final BufferedReader brtsv = Files.newBufferedReader(pin)) {
+            final String pin_header = brtsv.readLine();
+            final List<String> colnames = Arrays.asList(pin_header.split("\t"));
+            final int indexOf_SpecId = colnames.indexOf("SpecId");
+
+            final int indexOf_ntt = colnames.indexOf("ntt");
+            final int indexOf_nmc = colnames.indexOf("nmc");
+            Consumer3<String[], String, Integer> extractNttNmc = null;
+            if (indexOf_ntt >= 0 && indexOf_nmc >= 0) {
+                System.out.println("Looks to be MsFragger-compatible pin file");
+                extractNttNmc = (split, specId, rank) -> {
+                    final int ntt = Integer.parseInt(split[indexOf_ntt]);
+                    final int nmc = Integer.parseInt(split[indexOf_nmc]);
+                    pinSpectrumRankNttNmc.computeIfAbsent(specId, e -> new NttNmc[max_rank])[rank - 1] = new NttNmc(ntt, nmc);
+                };
+            }
+            final int indexOf_enzN = colnames.indexOf("enzN");
+            final int indexOf_enzC = colnames.indexOf("enzC");
+            final int indexOf_enzInt = colnames.indexOf("enzInt");
+            if (indexOf_enzC >= 0 && indexOf_enzN >= 0 && indexOf_enzInt >= 0) {
+                System.out.println("Looks to be Comet-compatible pin file");
+                extractNttNmc = (split, specId, rank) -> {
+                    final int enzN = Integer.parseInt(split[indexOf_enzN]);
+                    final int enzC = Integer.parseInt(split[indexOf_enzC]);
+                    final int nmc = Integer.parseInt(split[indexOf_enzInt]);
+                    final int ntt = enzN + enzC;
+                    pinSpectrumRankNttNmc.computeIfAbsent(specId, e -> new NttNmc[max_rank])[rank - 1] = new NttNmc(ntt, nmc);
+                };
+            }
+            if (extractNttNmc == null) {
+                throw new IllegalStateException("Did not find ntt/nmc or enzN/enzC/enzInt columns in the pin file");
+            }
+
+            final Function<String, Spectrum_rank> extractSpecRank;
+            switch (se) {
+                case MsFragger:
+                    extractSpecRank = PercolatorOutputToPepXML::get_spectrum_rank_msfragger;
+                    break;
+                case Comet:
+                    extractSpecRank = PercolatorOutputToPepXML::get_spectrum_rank_comet;
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Only know how to extract SpectrumRank for Comet and MsFragger");
+            }
+
+            String line;
+            while ((line = brtsv.readLine()) != null) {
+                final String[] split = line.split("\t");
+                final String raw_SpecId = split[indexOf_SpecId];
+                final Spectrum_rank spectrum_rank = extractSpecRank.apply(raw_SpecId);
+                final String specId = spectrum_rank.spectrum;
+                final int rank = spectrum_rank.rank;
+                extractNttNmc.accept(split, specId, rank);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
 
     static class NttNmc {
 
