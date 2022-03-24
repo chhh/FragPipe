@@ -40,9 +40,12 @@ import org.jooq.lambda.Seq;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@RunWith(JUnit4.class)
 public class IOUtilsTest {
   private static final Logger log = LoggerFactory.getLogger(IOUtilsTest.class);
   private static final String fnNoBom = "bom-none.txt";
@@ -50,11 +53,10 @@ public class IOUtilsTest {
   private static final String fnUtf16Be = "bom-utf16be.txt";
   private static final String fnUtf16Le = "bom-utf16le.txt";
 
-  @Test @Ignore("It's a dev/debug driver")
+  @Test //@Ignore("It's a dev/debug driver")
   public void tokenizeTest() throws IOException {
     //InputStream is = new ByteArrayInputStream(pepxmlSample().getBytes());
-
-    Path path = PathUtils.existing("D:\\ms-data\\TMTIntegrator_v1.1.4\\TMT-I-Test\\03CPTAC_CCRCC_W_JHU_20171022\\03CPTAC_CCRCC_W_JHU_20171022_LUMOS_f03.mzML");
+    Path path = PathUtils.existing("C:\\Users\\DmitryAvtonomov\\ms-data\\bin-ma-2021_PXD022287\\fragpipe-search-16_PXD022287_msfragger\\Human-Protein-Training_Trypsin.pepXML");
     FileSize fileSize = FileUtils.fileSize(path);
     log.debug("File ({}): {}", fileSize, path);
 
@@ -63,10 +65,15 @@ public class IOUtilsTest {
 //    IOUtils.tokenize1(is, "<", ">");
 //    log.debug("tokienize 1 test done");
 
-    log.debug("tokienize 2 test started");
+//    log.debug("tokienize 2 test started");
+//    InputStream is = new FileInputStream(path.toFile());
+//    IOUtils.tokenize2(is, "<", ">");
+//    log.debug("tokienize 2 test done");
+
+    log.debug("tokienize 3 test started");
     InputStream is = new FileInputStream(path.toFile());
-    IOUtils.tokenize2(is, "<", ">");
-    log.debug("tokienize 2 test done");
+    IOUtils.tokenize3(is, "<spectrum", "</spectrum");
+    log.debug("tokienize 3 test done");
   }
 
   @Test
